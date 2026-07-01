@@ -1,38 +1,71 @@
-# BulletRuby
+# bullet_ruby
 
-TODO: Delete this and the text below, and describe your gem
+Ruby bindings for the Bullet Physics SDK.
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/bullet_ruby`. To experiment with that code, run `bin/console` for an interactive prompt.
+This project is building a two-layer API:
+
+- low-level Bullet C++ bindings exposed under `Bullet`
+- Ruby-friendly helpers and simulation APIs built on top of those bindings
+
+The current implementation establishes the gem/native-extension build
+foundation and the first LinearMath APIs: `Bullet::Vector3`,
+`Bullet::Quaternion`, `Bullet::Matrix3x3`, and `Bullet::Transform`.
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
-
-Install the gem and add to the application's Gemfile by executing:
+Add the gem from this repository:
 
 ```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+gem "bullet_ruby", path: "path/to/bullet_ruby"
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+Then install dependencies:
 
 ```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+bundle install
 ```
 
 ## Usage
 
-TODO: Write usage instructions here
+```ruby
+require "bullet_ruby"
+
+v = Bullet::Vector3.new(1, 2, 3)
+axis = Bullet::Vector3.new(0, 0, 1)
+rotation = Bullet::Quaternion.from_axis_angle(axis, Math::PI / 2)
+transform = Bullet::Transform.new(rotation, Bullet::Vector3.new(1, 0, 0))
+
+p transform * v
+```
+
+By default the Ruby implementation is loaded. Set `BULLET_RUBY_USE_NATIVE=1`
+after compiling the extension to load the native `Bullet::Vector3` binding.
 
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+After checking out the repo, initialize submodules and install dependencies:
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+```bash
+git submodule update --init --recursive
+bundle install
+```
+
+Run the Ruby fallback test suite:
+
+```bash
+BULLET_RUBY_SKIP_NATIVE=1 bundle exec rake spec
+```
+
+Compile and test the native extension:
+
+```bash
+bundle exec rake compile
+BULLET_RUBY_USE_NATIVE=1 bundle exec rake spec
+```
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/bullet_ruby.
+Bug reports and pull requests are welcome on GitHub.
 
 ## License
 

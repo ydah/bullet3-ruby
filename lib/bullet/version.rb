@@ -1,0 +1,9 @@
+# frozen_string_literal: true
+
+module Bullet
+  VERSION = "0.1.0"
+end
+
+module BulletRuby
+  VERSION = Bullet::VERSION
+end

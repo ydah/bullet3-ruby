@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
-RSpec.describe BulletRuby do
+RSpec.describe Bullet do
   it "has a version number" do
-    expect(BulletRuby::VERSION).not_to be nil
+    expect(described_class::VERSION).not_to be nil
   end
 
-  it "does something useful" do
-    expect(false).to eq(true)
+  it "keeps the legacy gem namespace as an alias" do
+    expect(BulletRuby::VERSION).to eq(described_class::VERSION)
+    expect(BulletRuby::Error).to eq(described_class::Error)
   end
 end

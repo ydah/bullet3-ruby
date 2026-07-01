@@ -3,6 +3,8 @@
 /_yardoc/
 /coverage/
 /doc/
+/ext/bullet_ruby/build/
+/lib/bullet_ruby/*.bundle
 /pkg/
 /spec/reports/
 /tmp/

@@ -1,4 +1,42 @@
+module Bullet
+  VERSION: String
+
+  class Error < StandardError
+  end
+
+  class Vector3
+    attr_accessor x: Float
+    attr_accessor y: Float
+    attr_accessor z: Float
+
+    def self.zero: () -> Vector3
+    def self.coerce: (Vector3 | [Numeric, Numeric, Numeric]) -> Vector3
+
+    def initialize: (?Numeric x, ?Numeric y, ?Numeric z) -> void
+    def []: (Integer index) -> Float
+    def []=: (Integer index, Numeric value) -> Numeric
+    def +: (Vector3 | [Numeric, Numeric, Numeric] other) -> Vector3
+    def -: (Vector3 | [Numeric, Numeric, Numeric] other) -> Vector3
+    def -@: () -> Vector3
+    def *: (Numeric scalar) -> Vector3
+    def /: (Numeric scalar) -> Vector3
+    def length: () -> Float
+    def length2: () -> Float
+    def normalize: () -> Vector3
+    def normalize!: () -> Vector3
+    def normalized: () -> Vector3
+    def dot: (Vector3 | [Numeric, Numeric, Numeric] other) -> Float
+    def cross: (Vector3 | [Numeric, Numeric, Numeric] other) -> Vector3
+    def distance: (Vector3 | [Numeric, Numeric, Numeric] other) -> Float
+    def distance2: (Vector3 | [Numeric, Numeric, Numeric] other) -> Float
+    def lerp: (Vector3 | [Numeric, Numeric, Numeric] other, Numeric t) -> Vector3
+    def angle: (Vector3 | [Numeric, Numeric, Numeric] other) -> Float
+    def absolute: () -> Vector3
+    def to_a: () -> [Float, Float, Float]
+  end
+end
+
 module BulletRuby
   VERSION: String
-  # See the writing guide of rbs: https://github.com/ruby/rbs#guides
+  Error: singleton(Bullet::Error)
 end
