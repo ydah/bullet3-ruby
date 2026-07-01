@@ -74,7 +74,7 @@ module Bullet
 
     def self.identity: () -> Transform
 
-    def initialize: (?Quaternion rotation, ?Vector3 origin) -> void
+    def initialize: (?Quaternion | [Numeric, Numeric, Numeric, Numeric] rotation, ?Vector3 | [Numeric, Numeric, Numeric] origin) -> void
     def basis: () -> Matrix3x3
     def *: (Transform | Vector3 other) -> (Transform | Vector3)
     def inverse: () -> Transform
@@ -116,6 +116,83 @@ module Bullet
     class StaticPlaneShape < CollisionShape
       def initialize: (Vector3 normal, Numeric offset) -> void
     end
+  end
+
+  class CollisionConfiguration
+    def initialize: () -> void
+  end
+
+  class CollisionDispatcher
+    def initialize: (CollisionConfiguration configuration) -> void
+  end
+
+  class DbvtBroadphase
+    def initialize: () -> void
+  end
+
+  class SequentialImpulseConstraintSolver
+    def initialize: () -> void
+  end
+
+  class MotionState
+    attr_accessor world_transform: Transform
+
+    def initialize: (?Transform start_transform) -> void
+  end
+
+  class RigidBodyConstructionInfo
+    def initialize: (Numeric mass, MotionState motion_state, Shapes::CollisionShape collision_shape, ?Vector3 | [Numeric, Numeric, Numeric] local_inertia) -> void
+    def mass: () -> Float
+    def local_inertia: () -> Vector3
+    def friction: () -> Float
+    def friction=: (Numeric friction) -> Numeric
+    def restitution: () -> Float
+    def restitution=: (Numeric restitution) -> Numeric
+  end
+
+  class RigidBody
+    def initialize: (RigidBodyConstructionInfo construction_info) -> void
+    def mass: () -> Float
+    def collision_shape: () -> Shapes::CollisionShape
+    def world_transform: () -> Transform
+    def world_transform=: (Transform transform) -> Transform
+    def linear_velocity: () -> Vector3
+    def linear_velocity=: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> Vector3
+    def angular_velocity: () -> Vector3
+    def angular_velocity=: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> Vector3
+    def total_force: () -> Vector3
+    def total_torque: () -> Vector3
+    def friction: () -> Float
+    def friction=: (Numeric friction) -> Numeric
+    def restitution: () -> Float
+    def restitution=: (Numeric restitution) -> Numeric
+    def damping: () -> [Float, Float]
+    def set_damping: (Numeric linear_damping, Numeric angular_damping) -> [Float, Float]
+    def apply_central_force: (Vector3 | [Numeric, Numeric, Numeric] force) -> void
+    def apply_force: (Vector3 | [Numeric, Numeric, Numeric] force, Vector3 | [Numeric, Numeric, Numeric] relative_position) -> void
+    def apply_torque: (Vector3 | [Numeric, Numeric, Numeric] torque) -> void
+    def apply_central_impulse: (Vector3 | [Numeric, Numeric, Numeric] impulse) -> void
+    def apply_impulse: (Vector3 | [Numeric, Numeric, Numeric] impulse, Vector3 | [Numeric, Numeric, Numeric] relative_position) -> void
+    def clear_forces: () -> void
+    def activate: () -> void
+    def active?: () -> bool
+    def static?: () -> bool
+    def kinematic?: () -> bool
+  end
+
+  class DiscreteDynamicsWorld
+    def self.create: () -> DiscreteDynamicsWorld
+
+    def initialize: () -> void
+                  | (CollisionDispatcher dispatcher, DbvtBroadphase broadphase, SequentialImpulseConstraintSolver solver, CollisionConfiguration configuration) -> void
+    def gravity: () -> Vector3
+    def gravity=: (Vector3 | [Numeric, Numeric, Numeric] gravity) -> Vector3
+    def add_rigid_body: (RigidBody rigid_body) -> void
+    def remove_rigid_body: (RigidBody rigid_body) -> void
+    def step_simulation: (Numeric time_step, ?Integer max_sub_steps, ?Numeric fixed_time_step) -> Integer
+    def num_collision_objects: () -> Integer
+    def clear_forces: () -> void
+    def synchronize_motion_states: () -> void
   end
 end
 

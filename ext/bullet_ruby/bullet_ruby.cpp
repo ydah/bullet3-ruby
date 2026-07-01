@@ -1,8 +1,10 @@
 #include <rice/rice.hpp>
 
 void Init_Shapes(Rice::Module rb_mBullet);
+void Init_Dynamics(Rice::Module rb_mBullet);
 void Init_Matrix3x3(Rice::Module rb_mBullet);
 void Init_Quaternion(Rice::Module rb_mBullet);
+void Init_Transform(Rice::Module rb_mBullet);
 void Init_Vector3(Rice::Module rb_mBullet);
 
 extern "C"
@@ -12,5 +14,7 @@ void Init_bullet_ruby()
   Init_Vector3(rb_mBullet);
   Init_Quaternion(rb_mBullet);
   Init_Matrix3x3(rb_mBullet);
+  Init_Transform(rb_mBullet);
   Init_Shapes(rb_mBullet);
+  Init_Dynamics(rb_mBullet);
 }

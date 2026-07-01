@@ -1,0 +1,152 @@
+#pragma once
+
+#include <memory>
+#include <unordered_set>
+
+#include <btBulletDynamicsCommon.h>
+#include <rice/rice.hpp>
+
+#include "../linear_math/rb_transform.hpp"
+
+namespace bullet_ruby {
+class CollisionConfiguration {
+public:
+  CollisionConfiguration();
+
+  btDefaultCollisionConfiguration* get();
+
+private:
+  std::unique_ptr<btDefaultCollisionConfiguration> configuration_;
+};
+
+class CollisionDispatcher {
+public:
+  explicit CollisionDispatcher(CollisionConfiguration& configuration);
+
+  btCollisionDispatcher* get();
+
+private:
+  std::unique_ptr<btCollisionDispatcher> dispatcher_;
+};
+
+class DbvtBroadphase {
+public:
+  DbvtBroadphase();
+
+  btDbvtBroadphase* get();
+
+private:
+  std::unique_ptr<btDbvtBroadphase> broadphase_;
+};
+
+class SequentialImpulseConstraintSolver {
+public:
+  SequentialImpulseConstraintSolver();
+
+  btSequentialImpulseConstraintSolver* get();
+
+private:
+  std::unique_ptr<btSequentialImpulseConstraintSolver> solver_;
+};
+
+class MotionState {
+public:
+  MotionState();
+  explicit MotionState(VALUE start_transform);
+
+  btMotionState* get();
+  Transform world_transform() const;
+  Transform set_world_transform(Rice::Object transform);
+
+private:
+  std::unique_ptr<btDefaultMotionState> motion_state_;
+};
+
+class RigidBodyConstructionInfo {
+public:
+  RigidBodyConstructionInfo(btScalar mass, MotionState& motion_state, VALUE collision_shape);
+  RigidBodyConstructionInfo(btScalar mass, MotionState& motion_state, VALUE collision_shape, VALUE local_inertia);
+
+  btRigidBody::btRigidBodyConstructionInfo& get();
+  btScalar mass() const;
+  btVector3 local_inertia() const;
+  btScalar friction() const;
+  btScalar set_friction(btScalar friction);
+  btScalar restitution() const;
+  btScalar set_restitution(btScalar restitution);
+
+private:
+  btVector3 local_inertia_;
+  std::unique_ptr<btRigidBody::btRigidBodyConstructionInfo> info_;
+};
+
+class RigidBody {
+public:
+  explicit RigidBody(RigidBodyConstructionInfo& construction_info);
+
+  btRigidBody* get();
+  const btRigidBody* get() const;
+
+  btScalar mass() const;
+  btCollisionShape* collision_shape() const;
+  Transform world_transform() const;
+  Transform set_world_transform(Rice::Object transform);
+  btVector3 linear_velocity() const;
+  btVector3 set_linear_velocity(Rice::Object velocity);
+  btVector3 angular_velocity() const;
+  btVector3 set_angular_velocity(Rice::Object velocity);
+  btVector3 total_force() const;
+  btVector3 total_torque() const;
+  btScalar friction() const;
+  btScalar set_friction(btScalar friction);
+  btScalar restitution() const;
+  btScalar set_restitution(btScalar restitution);
+  Rice::Array damping() const;
+  Rice::Array set_damping(btScalar linear_damping, btScalar angular_damping);
+  void apply_central_force(Rice::Object force);
+  void apply_force(Rice::Object force, Rice::Object relative_position);
+  void apply_torque(Rice::Object torque);
+  void apply_central_impulse(Rice::Object impulse);
+  void apply_impulse(Rice::Object impulse, Rice::Object relative_position);
+  void clear_forces();
+  void activate();
+  bool active() const;
+  bool static_object() const;
+  bool kinematic_object() const;
+
+private:
+  std::unique_ptr<btRigidBody> rigid_body_;
+};
+
+class DiscreteDynamicsWorld {
+public:
+  DiscreteDynamicsWorld();
+  DiscreteDynamicsWorld(CollisionDispatcher& dispatcher,
+                        DbvtBroadphase& broadphase,
+                        SequentialImpulseConstraintSolver& solver,
+                        CollisionConfiguration& configuration);
+  ~DiscreteDynamicsWorld();
+
+  btDiscreteDynamicsWorld* get();
+  btVector3 gravity() const;
+  btVector3 set_gravity(Rice::Object gravity);
+  void add_rigid_body(RigidBody& rigid_body);
+  void remove_rigid_body(RigidBody& rigid_body);
+  int step_simulation(btScalar time_step, int max_sub_steps, btScalar fixed_time_step);
+  int num_collision_objects() const;
+  void clear_forces();
+  void synchronize_motion_states();
+
+private:
+  void build_owned_world();
+
+  std::unique_ptr<btDefaultCollisionConfiguration> owned_configuration_;
+  std::unique_ptr<btCollisionDispatcher> owned_dispatcher_;
+  std::unique_ptr<btDbvtBroadphase> owned_broadphase_;
+  std::unique_ptr<btSequentialImpulseConstraintSolver> owned_solver_;
+  std::unique_ptr<btDiscreteDynamicsWorld> world_;
+  std::unordered_set<btRigidBody*> rigid_bodies_;
+};
+} // namespace bullet_ruby
+
+void Init_Dynamics(Rice::Module rb_mBullet);
