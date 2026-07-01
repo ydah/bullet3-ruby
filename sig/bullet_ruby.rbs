@@ -318,6 +318,24 @@ module Bullet
     def ray_test_all: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> Array[ray_hit]
     def contact_manifolds: () -> Array[contact_manifold]
   end
+
+  class Simulation
+    attr_reader world: DiscreteDynamicsWorld
+
+    def initialize: (?mode: Symbol) -> void
+    def set_gravity: (Numeric x, ?Numeric y, ?Numeric z) -> Vector3
+                   | (Vector3 | [Numeric, Numeric, Numeric] vector) -> Vector3
+    def step_simulation: (?time_step: Numeric, ?max_sub_steps: Integer, ?fixed_time_step: Numeric) -> Integer
+    def create_collision_shape: (Symbol | String type, **untyped options) -> Integer
+    def create_rigid_body: (mass: Numeric, collision_shape: Integer, ?position: Vector3 | [Numeric, Numeric, Numeric], ?orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric]) -> Integer
+    def get_base_position_and_orientation: (Integer body_id) -> [[Float, Float, Float], [Float, Float, Float, Float]]
+    def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> DiscreteDynamicsWorld::ray_hit?
+    def ray_test_all: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> Array[DiscreteDynamicsWorld::ray_hit]
+    def body: (Integer body_id) -> RigidBody
+    def collision_shape: (Integer shape_id) -> Shapes::CollisionShape
+    def remove_body: (Integer body_id) -> nil
+    def disconnect: () -> nil
+  end
 end
 
 module BulletRuby

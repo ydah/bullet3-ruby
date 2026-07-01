@@ -9,7 +9,9 @@ This project is building a two-layer API:
 
 The current implementation establishes the gem/native-extension build
 foundation and the first LinearMath APIs: `Bullet::Vector3`,
-`Bullet::Quaternion`, `Bullet::Matrix3x3`, and `Bullet::Transform`.
+`Bullet::Quaternion`, `Bullet::Matrix3x3`, `Bullet::Transform`, collision
+shapes, rigid bodies, dynamics worlds, constraints, ray/contact queries, and a
+small high-level `Bullet::Simulation` facade.
 
 ## Installation
 
@@ -36,6 +38,22 @@ rotation = Bullet::Quaternion.from_axis_angle(axis, Math::PI / 2)
 transform = Bullet::Transform.new(rotation, Bullet::Vector3.new(1, 0, 0))
 
 p transform * v
+```
+
+High-level direct simulation:
+
+```ruby
+sim = Bullet::Simulation.new
+sim.set_gravity(0, -10, 0)
+
+plane = sim.create_collision_shape(:static_plane, normal: [0, 1, 0], offset: 0)
+sphere = sim.create_collision_shape(:sphere, radius: 1.0)
+
+sim.create_rigid_body(mass: 0.0, collision_shape: plane)
+body = sim.create_rigid_body(mass: 1.0, collision_shape: sphere, position: [0, 10, 0])
+
+120.times { sim.step_simulation(time_step: 1.0 / 60.0, fixed_time_step: 1.0 / 60.0) }
+p sim.get_base_position_and_orientation(body)
 ```
 
 By default the Ruby implementation is loaded. Set `BULLET_RUBY_USE_NATIVE=1`

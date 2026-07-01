@@ -16,6 +16,7 @@ require_relative "bullet/linear_math"
 require_relative "bullet/collision"
 require_relative "bullet/dynamics"
 require_relative "bullet/constraints"
+require_relative "bullet/simulation"
 
 module BulletRuby
   VERSION = Bullet::VERSION unless const_defined?(:VERSION, false)
