@@ -135,8 +135,11 @@ public:
   void add_rigid_body_object(VALUE rigid_body);
   void remove_rigid_body(RigidBody& rigid_body);
   void remove_rigid_body_object(VALUE rigid_body);
+  void add_constraint_object(VALUE constraint, bool disable_collisions_between_linked_bodies);
+  void remove_constraint_object(VALUE constraint);
   int step_simulation(btScalar time_step, int max_sub_steps, btScalar fixed_time_step);
   int num_collision_objects() const;
+  int num_constraints() const;
   void clear_forces();
   void synchronize_motion_states();
   Rice::Object ray_test_closest(Rice::Object from, Rice::Object to) const;
@@ -154,7 +157,9 @@ private:
   std::unique_ptr<btSequentialImpulseConstraintSolver> owned_solver_;
   std::unique_ptr<btDiscreteDynamicsWorld> world_;
   std::unordered_set<btRigidBody*> rigid_bodies_;
+  std::unordered_set<btTypedConstraint*> constraints_;
   std::unordered_map<const btCollisionObject*, VALUE> collision_object_values_;
+  std::unordered_map<const btTypedConstraint*, VALUE> constraint_values_;
 };
 } // namespace bullet_ruby
 

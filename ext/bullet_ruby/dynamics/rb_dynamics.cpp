@@ -4,6 +4,7 @@
 
 #include <ruby/thread.h>
 
+#include "../constraints/rb_constraints.hpp"
 #include "../util/type_conversions.hpp"
 
 namespace {
@@ -366,13 +367,10 @@ DiscreteDynamicsWorld::DiscreteDynamicsWorld(CollisionDispatcher& dispatcher,
 
 DiscreteDynamicsWorld::~DiscreteDynamicsWorld()
 {
-  if (world_ == nullptr) {
-    return;
-  }
-
-  for (btRigidBody* rigid_body : rigid_bodies_) {
-    world_->removeRigidBody(rigid_body);
-  }
+  constraints_.clear();
+  rigid_bodies_.clear();
+  constraint_values_.clear();
+  collision_object_values_.clear();
 }
 
 void DiscreteDynamicsWorld::build_owned_world()
@@ -437,6 +435,36 @@ void DiscreteDynamicsWorld::remove_rigid_body_object(VALUE rigid_body)
   remove_rigid_body(*body);
 }
 
+void DiscreteDynamicsWorld::add_constraint_object(VALUE constraint, bool disable_collisions_between_linked_bodies)
+{
+  TypedConstraint* typed_constraint = Rice::detail::From_Ruby<TypedConstraint*>().convert(constraint);
+  if (typed_constraint == nullptr) {
+    throw std::invalid_argument("expected Bullet::Constraints::TypedConstraint");
+  }
+
+  btTypedConstraint* bullet_constraint = typed_constraint->get();
+  if (constraints_.insert(bullet_constraint).second) {
+    world_->addConstraint(bullet_constraint, disable_collisions_between_linked_bodies);
+    constraint_values_[bullet_constraint] = constraint;
+  }
+}
+
+void DiscreteDynamicsWorld::remove_constraint_object(VALUE constraint)
+{
+  TypedConstraint* typed_constraint = Rice::detail::From_Ruby<TypedConstraint*>().convert(constraint);
+  if (typed_constraint == nullptr) {
+    throw std::invalid_argument("expected Bullet::Constraints::TypedConstraint");
+  }
+
+  btTypedConstraint* bullet_constraint = typed_constraint->get();
+  auto iterator = constraints_.find(bullet_constraint);
+  if (iterator != constraints_.end()) {
+    world_->removeConstraint(bullet_constraint);
+    constraints_.erase(iterator);
+  }
+  constraint_values_.erase(bullet_constraint);
+}
+
 int DiscreteDynamicsWorld::step_simulation(btScalar time_step, int max_sub_steps, btScalar fixed_time_step)
 {
   StepSimulationArgs args{world_.get(), time_step, max_sub_steps, fixed_time_step, 0};
@@ -447,6 +475,11 @@ int DiscreteDynamicsWorld::step_simulation(btScalar time_step, int max_sub_steps
 int DiscreteDynamicsWorld::num_collision_objects() const
 {
   return world_->getNumCollisionObjects();
+}
+
+int DiscreteDynamicsWorld::num_constraints() const
+{
+  return world_->getNumConstraints();
 }
 
 void DiscreteDynamicsWorld::clear_forces()
@@ -540,6 +573,9 @@ Rice::Array DiscreteDynamicsWorld::contact_manifolds() const
 void DiscreteDynamicsWorld::mark() const
 {
   for (const auto& entry : collision_object_values_) {
+    rb_gc_mark(entry.second);
+  }
+  for (const auto& entry : constraint_values_) {
     rb_gc_mark(entry.second);
   }
 }
@@ -651,11 +687,17 @@ void Init_Dynamics(Rice::Module rb_mBullet)
       Rice::Arg("rigid_body").setValue().keepAlive())
     .define_method("remove_rigid_body", &bullet_ruby::DiscreteDynamicsWorld::remove_rigid_body_object,
       Rice::Arg("rigid_body").setValue())
+    .define_method("add_constraint", &bullet_ruby::DiscreteDynamicsWorld::add_constraint_object,
+      Rice::Arg("constraint").setValue().keepAlive(),
+      Rice::Arg("disable_collisions_between_linked_bodies") = false)
+    .define_method("remove_constraint", &bullet_ruby::DiscreteDynamicsWorld::remove_constraint_object,
+      Rice::Arg("constraint").setValue())
     .define_method("step_simulation", &bullet_ruby::DiscreteDynamicsWorld::step_simulation,
       Rice::Arg("time_step"),
       Rice::Arg("max_sub_steps") = 1,
       Rice::Arg("fixed_time_step") = btScalar(1.0 / 60.0))
     .define_method("num_collision_objects", &bullet_ruby::DiscreteDynamicsWorld::num_collision_objects)
+    .define_method("num_constraints", &bullet_ruby::DiscreteDynamicsWorld::num_constraints)
     .define_method("clear_forces", &bullet_ruby::DiscreteDynamicsWorld::clear_forces)
     .define_method("synchronize_motion_states", &bullet_ruby::DiscreteDynamicsWorld::synchronize_motion_states)
     .define_method("ray_test_closest", &bullet_ruby::DiscreteDynamicsWorld::ray_test_closest)

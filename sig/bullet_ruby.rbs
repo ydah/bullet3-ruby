@@ -233,6 +233,49 @@ module Bullet
     def kinematic?: () -> bool
   end
 
+  module Constraints
+    class TypedConstraint
+      def constraint_type: () -> Symbol
+      def enabled?: () -> bool
+      def enabled=: (bool enabled) -> bool
+      def breaking_impulse_threshold: () -> Float
+      def breaking_impulse_threshold=: (Numeric threshold) -> Numeric
+      def debug_draw_size: () -> Float
+      def debug_draw_size=: (Numeric size) -> Numeric
+      def enable_feedback: (bool enabled) -> void
+      def needs_feedback?: () -> bool
+      def applied_impulse: () -> Float
+    end
+
+    class Point2PointConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, Vector3 | [Numeric, Numeric, Numeric] pivot_a) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Vector3 | [Numeric, Numeric, Numeric] pivot_a, Vector3 | [Numeric, Numeric, Numeric] pivot_b) -> void
+      def pivot_in_a: () -> Vector3
+      def pivot_in_a=: (Vector3 | [Numeric, Numeric, Numeric] pivot) -> Vector3
+      def pivot_in_b: () -> Vector3
+      def pivot_in_b=: (Vector3 | [Numeric, Numeric, Numeric] pivot) -> Vector3
+    end
+
+    class HingeConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, Vector3 | [Numeric, Numeric, Numeric] pivot_a, Vector3 | [Numeric, Numeric, Numeric] axis_a, ?bool use_reference_frame_a) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Vector3 | [Numeric, Numeric, Numeric] pivot_a, Vector3 | [Numeric, Numeric, Numeric] pivot_b, Vector3 | [Numeric, Numeric, Numeric] axis_a, Vector3 | [Numeric, Numeric, Numeric] axis_b, ?bool use_reference_frame_a) -> void
+      def angle: () -> Float
+      def lower_limit: () -> Float
+      def upper_limit: () -> Float
+      def angular_motor_enabled?: () -> bool
+      def motor_target_velocity: () -> Float
+      def max_motor_impulse: () -> Float
+      def enable_angular_motor: (bool enabled, Numeric target_velocity, Numeric max_motor_impulse) -> void
+      def set_limit: (Numeric low, Numeric high, ?Numeric softness, ?Numeric bias_factor, ?Numeric relaxation_factor) -> void
+      def frame_a: () -> Transform
+      def frame_b: () -> Transform
+    end
+
+    class FixedConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, RigidBody rigid_body_b, Transform frame_a, Transform frame_b) -> void
+    end
+  end
+
   class DiscreteDynamicsWorld
     type ray_hit = {
       body: RigidBody?,
@@ -263,8 +306,11 @@ module Bullet
     def gravity=: (Vector3 | [Numeric, Numeric, Numeric] gravity) -> Vector3
     def add_rigid_body: (RigidBody rigid_body) -> void
     def remove_rigid_body: (RigidBody rigid_body) -> void
+    def add_constraint: (Constraints::TypedConstraint constraint, ?bool disable_collisions_between_linked_bodies) -> void
+    def remove_constraint: (Constraints::TypedConstraint constraint) -> void
     def step_simulation: (Numeric time_step, ?Integer max_sub_steps, ?Numeric fixed_time_step) -> Integer
     def num_collision_objects: () -> Integer
+    def num_constraints: () -> Integer
     def clear_forces: () -> void
     def synchronize_motion_states: () -> void
     def ray_test_closest: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
