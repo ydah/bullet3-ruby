@@ -91,6 +91,7 @@ module Bullet
       def margin=: (Numeric margin) -> Numeric
       def calculate_local_inertia: (Numeric mass) -> Vector3
       def bounding_sphere: () -> [Vector3, Float]
+      def aabb: (?Transform transform) -> [Vector3, Vector3]
     end
 
     class BoxShape < CollisionShape
@@ -115,6 +116,58 @@ module Bullet
 
     class StaticPlaneShape < CollisionShape
       def initialize: (Vector3 normal, Numeric offset) -> void
+    end
+
+    class CompoundShape < CollisionShape
+      def initialize: (?bool enable_dynamic_aabb_tree, ?Integer initial_child_capacity) -> void
+      def add_child_shape: (Transform transform, CollisionShape shape) -> void
+      def remove_child_shape: (CollisionShape shape) -> void
+      def remove_child_shape_by_index: (Integer index) -> void
+      def num_child_shapes: () -> Integer
+      def child_shape: (Integer index) -> CollisionShape
+      def child_transform: (Integer index) -> Transform
+      def update_child_transform: (Integer index, Transform transform, ?bool recalculate) -> void
+      def recalculate_local_aabb: () -> void
+    end
+
+    class ConvexHullShape < CollisionShape
+      def initialize: (?[Vector3 | [Numeric, Numeric, Numeric]] points) -> void
+      def add_point: (Vector3 | [Numeric, Numeric, Numeric] point, ?bool recalculate) -> void
+      def num_points: () -> Integer
+      def point: (Integer index) -> Vector3
+      def optimize_convex_hull: () -> void
+    end
+
+    type triangle = [Vector3 | [Numeric, Numeric, Numeric], Vector3 | [Numeric, Numeric, Numeric], Vector3 | [Numeric, Numeric, Numeric]]
+
+    class TriangleMeshShape < CollisionShape
+      def initialize: ([triangle] triangles) -> void
+      def num_triangles: () -> Integer
+      def uses_quantized_aabb_compression: () -> bool
+    end
+
+    class ConvexTriangleMeshShape < CollisionShape
+      def initialize: ([triangle] triangles) -> void
+      def num_triangles: () -> Integer
+    end
+
+    class MultiSphereShape < CollisionShape
+      def initialize: ([Vector3 | [Numeric, Numeric, Numeric]] positions, [Numeric] radii) -> void
+      def sphere_count: () -> Integer
+      def sphere_position: (Integer index) -> Vector3
+      def sphere_radius: (Integer index) -> Float
+    end
+
+    class HeightfieldShape < CollisionShape
+      def initialize: (Integer width, Integer length, [Numeric] heights, Numeric min_height, Numeric max_height, ?Integer up_axis, ?bool flip_quad_edges) -> void
+      def width: () -> Integer
+      def length: () -> Integer
+      def height: (Integer x, Integer y) -> Float
+      def up_axis: () -> Integer
+      def vertex: (Integer x, Integer y) -> Vector3
+      def use_diamond_subdivision=: (bool enabled) -> bool
+      def use_zigzag_subdivision=: (bool enabled) -> bool
+      def flip_triangle_winding=: (bool enabled) -> bool
     end
   end
 

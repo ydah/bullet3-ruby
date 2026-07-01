@@ -29,11 +29,77 @@ RSpec.describe "Bullet::Shapes" do
 
     inertia = shape.calculate_local_inertia(3)
     center, radius = shape.bounding_sphere
+    min, max = shape.aabb(Bullet::Transform.identity)
 
     expect(inertia.x).to be > 0
     expect(inertia.y).to be > 0
     expect(inertia.z).to be > 0
     expect(center).to eq(Bullet::Vector3.zero)
     expect(radius).to be >= 2.0
+    expect(min).to eq(Bullet::Vector3.new(-2, -2, -2))
+    expect(max).to eq(Bullet::Vector3.new(2, 2, 2))
+  end
+
+  it "creates compound shapes" do
+    compound = Bullet::Shapes::CompoundShape.new
+    box = Bullet::Shapes::BoxShape.new(Bullet::Vector3.new(1, 1, 1))
+    transform = Bullet::Transform.new(Bullet::Quaternion.identity, Bullet::Vector3.new(3, 0, 0))
+
+    compound.add_child_shape(transform, box)
+
+    expect(compound.shape_type).to eq(:compound)
+    expect(compound.num_child_shapes).to eq(1)
+    expect(compound.child_shape(0).shape_type).to eq(:box)
+    expect(compound.child_transform(0).origin).to eq(Bullet::Vector3.new(3, 0, 0))
+  end
+
+  it "creates convex hull shapes" do
+    shape = Bullet::Shapes::ConvexHullShape.new([
+      [0, 0, 0],
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1]
+    ])
+    shape.add_point(Bullet::Vector3.new(1, 1, 1))
+
+    expect(shape.shape_type).to eq(:convex_hull)
+    expect(shape.num_points).to eq(5)
+    expect(shape.point(4)).to eq(Bullet::Vector3.new(1, 1, 1))
+  end
+
+  it "creates triangle mesh shapes" do
+    triangles = [
+      [[0, 0, 0], [1, 0, 0], [0, 1, 0]],
+      [[0, 0, 0], [0, 1, 0], [0, 0, 1]]
+    ]
+
+    concave = Bullet::Shapes::TriangleMeshShape.new(triangles)
+    convex = Bullet::Shapes::ConvexTriangleMeshShape.new(triangles)
+
+    expect(concave.shape_type).to eq(:triangle_mesh)
+    expect(concave.num_triangles).to eq(2)
+    expect(concave.uses_quantized_aabb_compression).to be(true)
+    expect(convex.shape_type).to eq(:convex_triangle_mesh)
+    expect(convex.num_triangles).to eq(2)
+  end
+
+  it "creates multi-sphere and heightfield shapes" do
+    multi_sphere = Bullet::Shapes::MultiSphereShape.new(
+      [[0, 0, 0], [1, 0, 0]],
+      [0.5, 0.25]
+    )
+    heightfield = Bullet::Shapes::HeightfieldShape.new(2, 2, [0.0, 1.0, 2.0, 3.0], 0.0, 3.0)
+
+    expect(multi_sphere.shape_type).to eq(:multi_sphere)
+    expect(multi_sphere.sphere_count).to eq(2)
+    expect(multi_sphere.sphere_position(1)).to eq(Bullet::Vector3.new(1, 0, 0))
+    expect(multi_sphere.sphere_radius(0)).to be_within(1e-6).of(0.5)
+
+    expect(heightfield.shape_type).to eq(:heightfield)
+    expect(heightfield.width).to eq(2)
+    expect(heightfield.length).to eq(2)
+    expect(heightfield.height(1, 1)).to be_within(1e-6).of(3.0)
+    expect(heightfield.up_axis).to eq(1)
+    expect(heightfield.vertex(1, 1)).to be_a(Bullet::Vector3)
   end
 end
