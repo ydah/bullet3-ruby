@@ -165,4 +165,23 @@ module Bullet
       )
     end
   end unless const_defined?(:Quaternion, false)
+
+  class Quaternion
+    EPSILON = 1e-6 unless const_defined?(:EPSILON, false)
+
+    def self.coerce(value)
+      coerced = try_coerce(value)
+      return coerced if coerced
+
+      raise TypeError, "expected Bullet::Quaternion or a 4-element Array"
+    end
+
+    def self.try_coerce(value)
+      return value if value.is_a?(self)
+
+      return new(*value) if value.respond_to?(:to_ary) && value.to_ary.length == 4
+
+      nil
+    end
+  end
 end

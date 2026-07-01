@@ -34,6 +34,53 @@ module Bullet
     def absolute: () -> Vector3
     def to_a: () -> [Float, Float, Float]
   end
+
+  class Quaternion
+    attr_accessor x: Float
+    attr_accessor y: Float
+    attr_accessor z: Float
+    attr_accessor w: Float
+
+    def self.identity: () -> Quaternion
+    def self.from_axis_angle: (Vector3 | [Numeric, Numeric, Numeric] axis, Numeric angle) -> Quaternion
+    def self.from_euler: (Numeric roll, Numeric pitch, Numeric yaw) -> Quaternion
+    def self.coerce: (Quaternion | [Numeric, Numeric, Numeric, Numeric]) -> Quaternion
+
+    def initialize: (?Numeric x, ?Numeric y, ?Numeric z, ?Numeric w) -> void
+    def *: (Quaternion | [Numeric, Numeric, Numeric, Numeric] other) -> Quaternion
+    def inverse: () -> Quaternion
+    def angle: () -> Float
+    def axis: () -> Vector3
+    def slerp: (Quaternion | [Numeric, Numeric, Numeric, Numeric] other, Numeric t) -> Quaternion
+    def to_euler: () -> [Float, Float, Float]
+    def to_matrix: () -> Matrix3x3
+    def normalized: () -> Quaternion
+    def to_a: () -> [Float, Float, Float, Float]
+  end
+
+  class Matrix3x3
+    def self.identity: () -> Matrix3x3
+    def self.from_quaternion: (Quaternion | [Numeric, Numeric, Numeric, Numeric] quaternion) -> Matrix3x3
+
+    def initialize: (?Numeric xx, ?Numeric xy, ?Numeric xz, ?Numeric yx, ?Numeric yy, ?Numeric yz, ?Numeric zx, ?Numeric zy, ?Numeric zz) -> void
+    def *: (Vector3 | [Numeric, Numeric, Numeric] vector) -> Vector3
+    def transpose: () -> Matrix3x3
+    def to_a: () -> [[Float, Float, Float], [Float, Float, Float], [Float, Float, Float]]
+  end
+
+  class Transform
+    attr_accessor origin: Vector3
+    attr_accessor rotation: Quaternion
+
+    def self.identity: () -> Transform
+
+    def initialize: (?Quaternion rotation, ?Vector3 origin) -> void
+    def basis: () -> Matrix3x3
+    def *: (Transform | Vector3 other) -> (Transform | Vector3)
+    def inverse: () -> Transform
+    def inverse_times: (Transform other) -> Transform
+    def to_a: () -> [[Float, Float, Float], [Float, Float, Float, Float]]
+  end
 end
 
 module BulletRuby

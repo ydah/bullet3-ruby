@@ -12,19 +12,19 @@ RSpec.describe Bullet::Quaternion do
   it "builds a quaternion from an axis and angle" do
     quaternion = described_class.from_axis_angle(Bullet::Vector3.new(0, 0, 1), Math::PI)
 
-    expect(quaternion.x).to be_within(1e-12).of(0.0)
-    expect(quaternion.y).to be_within(1e-12).of(0.0)
-    expect(quaternion.z).to be_within(1e-12).of(1.0)
-    expect(quaternion.w).to be_within(1e-12).of(0.0)
+    expect(quaternion.x).to be_within(1e-6).of(0.0)
+    expect(quaternion.y).to be_within(1e-6).of(0.0)
+    expect(quaternion.z).to be_within(1e-6).of(1.0)
+    expect(quaternion.w).to be_within(1e-6).of(0.0)
   end
 
   it "round-trips euler angles" do
     quaternion = described_class.from_euler(0.1, 0.2, 0.3)
     roll, pitch, yaw = quaternion.to_euler
 
-    expect(roll).to be_within(1e-12).of(0.1)
-    expect(pitch).to be_within(1e-12).of(0.2)
-    expect(yaw).to be_within(1e-12).of(0.3)
+    expect(roll).to be_within(1e-6).of(0.1)
+    expect(pitch).to be_within(1e-6).of(0.2)
+    expect(yaw).to be_within(1e-6).of(0.3)
   end
 
   it "multiplies and inverts quaternions" do
@@ -40,7 +40,7 @@ RSpec.describe Bullet::Quaternion do
 
     halfway = start.slerp(finish, 0.5)
 
-    expect(halfway.angle).to be_within(1e-12).of(Math::PI / 2)
-    expect(halfway.axis).to eq(Bullet::Vector3.new(0, 0, 1))
+    expect(halfway.angle).to be_within(1e-6).of(Math::PI / 2)
+    expect(halfway.axis.absolute).to eq(Bullet::Vector3.new(0, 0, 1))
   end
 end

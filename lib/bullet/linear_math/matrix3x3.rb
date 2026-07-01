@@ -27,7 +27,17 @@ module Bullet
       ])
     end
 
-    def initialize(rows = self.class.identity.rows)
+    def initialize(*values)
+      rows = if values.empty?
+               self.class.identity.rows
+             elsif values.length == 1
+               values.first
+             elsif values.length == 9
+               values.each_slice(3).to_a
+             else
+               raise ArgumentError, "expected a 3x3 row array or 9 scalar values"
+             end
+
       @rows = rows.map { |row| row.map { |value| Float(value) } }
       raise ArgumentError, "matrix must be 3x3" unless @rows.length == 3 && @rows.all? { |row| row.length == 3 }
     end
