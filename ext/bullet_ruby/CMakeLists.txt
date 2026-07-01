@@ -40,6 +40,7 @@ add_subdirectory("${BULLET3_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/bullet3")
 
 add_library(bullet_ruby MODULE
   bullet_ruby.cpp
+  collision/shapes/rb_collision_shape.cpp
   linear_math/rb_matrix3x3.cpp
   linear_math/rb_quaternion.cpp
   linear_math/rb_vector3.cpp

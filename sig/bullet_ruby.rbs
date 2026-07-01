@@ -81,6 +81,42 @@ module Bullet
     def inverse_times: (Transform other) -> Transform
     def to_a: () -> [[Float, Float, Float], [Float, Float, Float, Float]]
   end
+
+  module Shapes
+    class CollisionShape
+      def shape_type: () -> Symbol
+      def local_scaling: () -> Vector3
+      def local_scaling=: (Vector3 | [Numeric, Numeric, Numeric] scaling) -> Vector3
+      def margin: () -> Float
+      def margin=: (Numeric margin) -> Numeric
+      def calculate_local_inertia: (Numeric mass) -> Vector3
+      def bounding_sphere: () -> [Vector3, Float]
+    end
+
+    class BoxShape < CollisionShape
+      def initialize: (Vector3 half_extents) -> void
+    end
+
+    class SphereShape < CollisionShape
+      def initialize: (Numeric radius) -> void
+    end
+
+    class CapsuleShape < CollisionShape
+      def initialize: (Numeric radius, Numeric height) -> void
+    end
+
+    class CylinderShape < CollisionShape
+      def initialize: (Vector3 half_extents) -> void
+    end
+
+    class ConeShape < CollisionShape
+      def initialize: (Numeric radius, Numeric height) -> void
+    end
+
+    class StaticPlaneShape < CollisionShape
+      def initialize: (Vector3 normal, Numeric offset) -> void
+    end
+  end
 end
 
 module BulletRuby
