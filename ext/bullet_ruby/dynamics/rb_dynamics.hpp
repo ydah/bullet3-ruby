@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 #include <unordered_set>
 
 #include <btBulletDynamicsCommon.h>
@@ -131,14 +132,21 @@ public:
   btVector3 gravity() const;
   btVector3 set_gravity(Rice::Object gravity);
   void add_rigid_body(RigidBody& rigid_body);
+  void add_rigid_body_object(VALUE rigid_body);
   void remove_rigid_body(RigidBody& rigid_body);
+  void remove_rigid_body_object(VALUE rigid_body);
   int step_simulation(btScalar time_step, int max_sub_steps, btScalar fixed_time_step);
   int num_collision_objects() const;
   void clear_forces();
   void synchronize_motion_states();
+  Rice::Object ray_test_closest(Rice::Object from, Rice::Object to) const;
+  Rice::Array ray_test_all(Rice::Object from, Rice::Object to) const;
+  Rice::Array contact_manifolds() const;
+  void mark() const;
 
 private:
   void build_owned_world();
+  VALUE ruby_object_for(const btCollisionObject* collision_object) const;
 
   std::unique_ptr<btDefaultCollisionConfiguration> owned_configuration_;
   std::unique_ptr<btCollisionDispatcher> owned_dispatcher_;
@@ -146,6 +154,7 @@ private:
   std::unique_ptr<btSequentialImpulseConstraintSolver> owned_solver_;
   std::unique_ptr<btDiscreteDynamicsWorld> world_;
   std::unordered_set<btRigidBody*> rigid_bodies_;
+  std::unordered_map<const btCollisionObject*, VALUE> collision_object_values_;
 };
 } // namespace bullet_ruby
 

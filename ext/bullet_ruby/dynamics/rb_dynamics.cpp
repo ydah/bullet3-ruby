@@ -40,6 +40,11 @@ void* step_simulation_without_gvl(void* pointer)
   args->result = args->world->stepSimulation(args->time_step, args->max_sub_steps, args->fixed_time_step);
   return nullptr;
 }
+
+void set_vector_hash_value(Rice::Hash& hash, const char* key, const btVector3& value)
+{
+  hash[Rice::Symbol(key)] = Rice::Object(Rice::detail::To_Ruby<btVector3>().convert(btVector3(value)));
+}
 } // namespace
 
 namespace bullet_ruby {
@@ -408,6 +413,13 @@ void DiscreteDynamicsWorld::add_rigid_body(RigidBody& rigid_body)
   }
 }
 
+void DiscreteDynamicsWorld::add_rigid_body_object(VALUE rigid_body)
+{
+  RigidBody* body = Rice::detail::From_Ruby<RigidBody*>().convert(rigid_body);
+  add_rigid_body(*body);
+  collision_object_values_[body->get()] = rigid_body;
+}
+
 void DiscreteDynamicsWorld::remove_rigid_body(RigidBody& rigid_body)
 {
   btRigidBody* body = rigid_body.get();
@@ -416,6 +428,13 @@ void DiscreteDynamicsWorld::remove_rigid_body(RigidBody& rigid_body)
     world_->removeRigidBody(body);
     rigid_bodies_.erase(iterator);
   }
+  collision_object_values_.erase(body);
+}
+
+void DiscreteDynamicsWorld::remove_rigid_body_object(VALUE rigid_body)
+{
+  RigidBody* body = Rice::detail::From_Ruby<RigidBody*>().convert(rigid_body);
+  remove_rigid_body(*body);
 }
 
 int DiscreteDynamicsWorld::step_simulation(btScalar time_step, int max_sub_steps, btScalar fixed_time_step)
@@ -439,7 +458,102 @@ void DiscreteDynamicsWorld::synchronize_motion_states()
 {
   world_->synchronizeMotionStates();
 }
+
+VALUE DiscreteDynamicsWorld::ruby_object_for(const btCollisionObject* collision_object) const
+{
+  auto iterator = collision_object_values_.find(collision_object);
+  if (iterator == collision_object_values_.end()) {
+    return Qnil;
+  }
+  return iterator->second;
+}
+
+Rice::Object DiscreteDynamicsWorld::ray_test_closest(Rice::Object from, Rice::Object to) const
+{
+  btVector3 ray_from = coerce_vector(from);
+  btVector3 ray_to = coerce_vector(to);
+  btCollisionWorld::ClosestRayResultCallback callback(ray_from, ray_to);
+  world_->rayTest(ray_from, ray_to, callback);
+
+  if (!callback.hasHit()) {
+    return Rice::Object(Qnil);
+  }
+
+  Rice::Hash hit;
+  hit[Rice::Symbol("body")] = Rice::Object(ruby_object_for(callback.m_collisionObject));
+  hit[Rice::Symbol("fraction")] = callback.m_closestHitFraction;
+  set_vector_hash_value(hit, "point", callback.m_hitPointWorld);
+  set_vector_hash_value(hit, "normal", callback.m_hitNormalWorld);
+  return hit;
+}
+
+Rice::Array DiscreteDynamicsWorld::ray_test_all(Rice::Object from, Rice::Object to) const
+{
+  btVector3 ray_from = coerce_vector(from);
+  btVector3 ray_to = coerce_vector(to);
+  btCollisionWorld::AllHitsRayResultCallback callback(ray_from, ray_to);
+  world_->rayTest(ray_from, ray_to, callback);
+
+  Rice::Array hits;
+  for (int index = 0; index < callback.m_collisionObjects.size(); ++index) {
+    Rice::Hash hit;
+    hit[Rice::Symbol("body")] = Rice::Object(ruby_object_for(callback.m_collisionObjects[index]));
+    hit[Rice::Symbol("fraction")] = callback.m_hitFractions[index];
+    set_vector_hash_value(hit, "point", callback.m_hitPointWorld[index]);
+    set_vector_hash_value(hit, "normal", callback.m_hitNormalWorld[index]);
+    hits.push(hit);
+  }
+  return hits;
+}
+
+Rice::Array DiscreteDynamicsWorld::contact_manifolds() const
+{
+  Rice::Array manifolds;
+  btDispatcher* dispatcher = world_->getDispatcher();
+  int manifold_count = dispatcher->getNumManifolds();
+
+  for (int manifold_index = 0; manifold_index < manifold_count; ++manifold_index) {
+    btPersistentManifold* manifold = dispatcher->getManifoldByIndexInternal(manifold_index);
+    Rice::Hash manifold_hash;
+    manifold_hash[Rice::Symbol("body0")] = Rice::Object(ruby_object_for(static_cast<const btCollisionObject*>(manifold->getBody0())));
+    manifold_hash[Rice::Symbol("body1")] = Rice::Object(ruby_object_for(static_cast<const btCollisionObject*>(manifold->getBody1())));
+
+    Rice::Array points;
+    for (int point_index = 0; point_index < manifold->getNumContacts(); ++point_index) {
+      const btManifoldPoint& point = manifold->getContactPoint(point_index);
+      Rice::Hash point_hash;
+      set_vector_hash_value(point_hash, "position_world_on_a", point.getPositionWorldOnA());
+      set_vector_hash_value(point_hash, "position_world_on_b", point.getPositionWorldOnB());
+      set_vector_hash_value(point_hash, "normal_world_on_b", point.m_normalWorldOnB);
+      point_hash[Rice::Symbol("distance")] = point.getDistance();
+      point_hash[Rice::Symbol("life_time")] = point.getLifeTime();
+      points.push(point_hash);
+    }
+
+    manifold_hash[Rice::Symbol("points")] = points;
+    manifolds.push(manifold_hash);
+  }
+
+  return manifolds;
+}
+
+void DiscreteDynamicsWorld::mark() const
+{
+  for (const auto& entry : collision_object_values_) {
+    rb_gc_mark(entry.second);
+  }
+}
 } // namespace bullet_ruby
+
+namespace Rice {
+template <>
+void ruby_mark<bullet_ruby::DiscreteDynamicsWorld>(bullet_ruby::DiscreteDynamicsWorld* world)
+{
+  if (world != nullptr) {
+    world->mark();
+  }
+}
+} // namespace Rice
 
 void Init_Dynamics(Rice::Module rb_mBullet)
 {
@@ -533,14 +647,19 @@ void Init_Dynamics(Rice::Module rb_mBullet)
     }, Rice::Return().takeOwnership())
     .define_method("gravity", &bullet_ruby::DiscreteDynamicsWorld::gravity)
     .define_method("gravity=", &bullet_ruby::DiscreteDynamicsWorld::set_gravity)
-    .define_method("add_rigid_body", &bullet_ruby::DiscreteDynamicsWorld::add_rigid_body,
-      Rice::Arg("rigid_body").keepAlive())
-    .define_method("remove_rigid_body", &bullet_ruby::DiscreteDynamicsWorld::remove_rigid_body)
+    .define_method("add_rigid_body", &bullet_ruby::DiscreteDynamicsWorld::add_rigid_body_object,
+      Rice::Arg("rigid_body").setValue().keepAlive())
+    .define_method("remove_rigid_body", &bullet_ruby::DiscreteDynamicsWorld::remove_rigid_body_object,
+      Rice::Arg("rigid_body").setValue())
     .define_method("step_simulation", &bullet_ruby::DiscreteDynamicsWorld::step_simulation,
       Rice::Arg("time_step"),
       Rice::Arg("max_sub_steps") = 1,
       Rice::Arg("fixed_time_step") = btScalar(1.0 / 60.0))
     .define_method("num_collision_objects", &bullet_ruby::DiscreteDynamicsWorld::num_collision_objects)
     .define_method("clear_forces", &bullet_ruby::DiscreteDynamicsWorld::clear_forces)
-    .define_method("synchronize_motion_states", &bullet_ruby::DiscreteDynamicsWorld::synchronize_motion_states);
+    .define_method("synchronize_motion_states", &bullet_ruby::DiscreteDynamicsWorld::synchronize_motion_states)
+    .define_method("ray_test_closest", &bullet_ruby::DiscreteDynamicsWorld::ray_test_closest)
+    .define_method("ray_test", &bullet_ruby::DiscreteDynamicsWorld::ray_test_closest)
+    .define_method("ray_test_all", &bullet_ruby::DiscreteDynamicsWorld::ray_test_all)
+    .define_method("contact_manifolds", &bullet_ruby::DiscreteDynamicsWorld::contact_manifolds);
 }

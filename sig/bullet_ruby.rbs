@@ -234,6 +234,27 @@ module Bullet
   end
 
   class DiscreteDynamicsWorld
+    type ray_hit = {
+      body: RigidBody?,
+      fraction: Float,
+      point: Vector3,
+      normal: Vector3
+    }
+
+    type contact_point = {
+      position_world_on_a: Vector3,
+      position_world_on_b: Vector3,
+      normal_world_on_b: Vector3,
+      distance: Float,
+      life_time: Integer
+    }
+
+    type contact_manifold = {
+      body0: RigidBody?,
+      body1: RigidBody?,
+      points: Array[contact_point]
+    }
+
     def self.create: () -> DiscreteDynamicsWorld
 
     def initialize: () -> void
@@ -246,6 +267,10 @@ module Bullet
     def num_collision_objects: () -> Integer
     def clear_forces: () -> void
     def synchronize_motion_states: () -> void
+    def ray_test_closest: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
+    def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
+    def ray_test_all: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> Array[ray_hit]
+    def contact_manifolds: () -> Array[contact_manifold]
   end
 end
 
