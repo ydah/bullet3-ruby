@@ -301,6 +301,94 @@ module Bullet
     def update_vehicle: (Numeric step) -> void
   end
 
+  module SoftBody
+    class SoftBodyWorldInfo
+      def initialize: () -> void
+      def gravity: () -> Vector3
+      def gravity=: (Vector3 | [Numeric, Numeric, Numeric] gravity) -> Vector3
+      def air_density: () -> Float
+      def air_density=: (Numeric value) -> Numeric
+      def water_density: () -> Float
+      def water_density=: (Numeric value) -> Numeric
+      def water_offset: () -> Float
+      def water_offset=: (Numeric value) -> Numeric
+      def water_normal: () -> Vector3
+      def water_normal=: (Vector3 | [Numeric, Numeric, Numeric] normal) -> Vector3
+      def max_displacement: () -> Float
+      def max_displacement=: (Numeric value) -> Numeric
+      def reset_sparse_sdf: () -> void
+    end
+
+    class SoftBody
+      type ray_hit = {
+        feature: Symbol,
+        index: Integer,
+        fraction: Float
+      }
+
+      def node_count: () -> Integer
+      def link_count: () -> Integer
+      def face_count: () -> Integer
+      def tetra_count: () -> Integer
+      def cluster_count: () -> Integer
+      def total_mass: () -> Float
+      def set_total_mass: (Numeric mass, ?bool from_faces) -> void
+      def node_mass: (Integer index) -> Float
+      def set_node_mass: (Integer index, Numeric mass) -> Numeric
+      def node_position: (Integer index) -> Vector3
+      def node_velocity: (Integer index) -> Vector3
+      def center_of_mass: () -> Vector3
+      def linear_velocity: () -> Vector3
+      def linear_velocity=: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> void
+      def set_velocity: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> void
+      def set_angular_velocity: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> void
+      def add_force: (Vector3 | [Numeric, Numeric, Numeric] force) -> void
+      def add_velocity: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> void
+      def translate: (Vector3 | [Numeric, Numeric, Numeric] translation) -> void
+      def rotate: (Quaternion | [Numeric, Numeric, Numeric, Numeric] rotation) -> void
+      def scale: (Vector3 | [Numeric, Numeric, Numeric] scaling) -> void
+      def transform: (Transform transform) -> void
+      def set_pose: (bool volume, bool frame) -> void
+      def generate_bending_constraints: (Integer distance) -> Integer
+      def generate_clusters: (Integer count) -> Integer
+      def randomize_constraints: () -> void
+      def wind_velocity: () -> Vector3
+      def wind_velocity=: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> Vector3
+      def set_zero_velocity: () -> void
+      def self_collision?: () -> bool
+      def self_collision=: (bool enabled) -> bool
+      def aabb: () -> [Vector3, Vector3]
+      def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
+      def append_anchor: (Integer node, RigidBody rigid_body, ?bool disable_collision_between_linked_bodies, ?Numeric influence) -> void
+    end
+
+    class SoftRigidDynamicsWorld
+      def self.create: () -> SoftRigidDynamicsWorld
+      def initialize: () -> void
+      def gravity: () -> Vector3
+      def gravity=: (Vector3 | [Numeric, Numeric, Numeric] gravity) -> Vector3
+      def world_info: () -> SoftBodyWorldInfo
+      def add_rigid_body: (RigidBody rigid_body) -> void
+      def remove_rigid_body: (RigidBody rigid_body) -> void
+      def add_soft_body: (SoftBody soft_body, ?Integer collision_filter_group, ?Integer collision_filter_mask) -> void
+      def remove_soft_body: (SoftBody soft_body) -> void
+      def step_simulation: (Numeric time_step, ?Integer max_sub_steps, ?Numeric fixed_time_step) -> Integer
+      def num_collision_objects: () -> Integer
+      def num_soft_bodies: () -> Integer
+      def draw_flags: () -> Integer
+      def draw_flags=: (Integer flags) -> Integer
+      def clear_forces: () -> void
+    end
+
+    module Helpers
+      def self.create_rope: (SoftBodyWorldInfo world_info, Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to, Integer resolution, Integer fixed_nodes) -> SoftBody
+      def self.create_patch: (SoftBodyWorldInfo world_info, Vector3 | [Numeric, Numeric, Numeric] corner00, Vector3 | [Numeric, Numeric, Numeric] corner10, Vector3 | [Numeric, Numeric, Numeric] corner01, Vector3 | [Numeric, Numeric, Numeric] corner11, Integer resolution_x, Integer resolution_y, Integer fixed_nodes, bool generate_diagonals, ?Numeric perturbation) -> SoftBody
+      def self.create_ellipsoid: (SoftBodyWorldInfo world_info, Vector3 | [Numeric, Numeric, Numeric] center, Vector3 | [Numeric, Numeric, Numeric] radius, Integer resolution) -> SoftBody
+      def self.create_from_tri_mesh: (SoftBodyWorldInfo world_info, Array[Vector3 | [Numeric, Numeric, Numeric]] vertices, Array[[Integer, Integer, Integer] | Integer] triangles, ?bool randomize_constraints) -> SoftBody
+      def self.create_from_convex_hull: (SoftBodyWorldInfo world_info, Array[Vector3 | [Numeric, Numeric, Numeric]] points, ?bool randomize_constraints) -> SoftBody
+    end
+  end
+
   module Constraints
     class TypedConstraint
       def constraint_type: () -> Symbol

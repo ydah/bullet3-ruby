@@ -17,6 +17,7 @@ require_relative "bullet/collision"
 require_relative "bullet/dynamics"
 require_relative "bullet/constraints"
 require_relative "bullet/vehicle"
+require_relative "bullet/soft_body"
 require_relative "bullet/simulation"
 
 module BulletRuby
