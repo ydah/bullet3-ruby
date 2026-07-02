@@ -102,12 +102,15 @@ p world.ray_test([0, 5, 0], [0, -5, 0])
 - Dynamics: rigid bodies, motion states, default/explicit worlds,
   constraints, contact manifolds, GVL-free stepping
 - Extras: raycast vehicles, soft bodies, multibodies
-- High-level API: direct simulation, primitive body creation, primitive URDF,
-  ray/contact/AABB helpers, base pose, dynamics updates, reset/disconnect
+- High-level API: direct/gui/shared-memory compatible local simulation modes,
+  primitive body creation, single- and multi-link URDF, SDF and MJCF primitive
+  import, ray/contact/AABB helpers, base pose, joint state/control helpers,
+  camera ray rendering, JSON world snapshots, dynamics updates, reset/disconnect
 
-Not yet implemented: full multi-link URDF/SDF/MJCF import, Bullet serializer
-bindings, GUI/shared-memory modes, TinyRenderer camera images, and joint-control
-helpers for imported robots.
+Remaining limitations: GUI and shared-memory modes run through the same local
+simulation backend, camera images use the built-in ray renderer rather than
+TinyRenderer, and native Bullet `.bullet` serializer bindings are represented
+by high-level JSON snapshots.
 
 ## Development
 

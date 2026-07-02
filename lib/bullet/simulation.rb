@@ -1,19 +1,26 @@
 # frozen_string_literal: true
 
+require "json"
 require "rexml/document"
 
 module Bullet
   class Simulation
-    attr_reader :world
+    attr_reader :world, :mode
 
     def initialize(mode: :direct)
-      raise ArgumentError, "only :direct mode is currently supported" unless mode == :direct
+      mode = mode.to_sym
+      raise ArgumentError, "unsupported connection mode: #{mode}" unless %i[direct gui shared_memory].include?(mode)
       raise Bullet::Error, "native extension is required for Bullet::Simulation" unless defined?(DiscreteDynamicsWorld)
 
+      @mode = mode
       @world = DiscreteDynamicsWorld.create
       @shapes = []
+      @shape_specs = []
       @bodies = []
+      @body_specs = []
       @constraints = []
+      @constraint_specs = []
+      @models = {}
     end
 
     def set_gravity(x, y = nil, z = nil)
@@ -26,37 +33,27 @@ module Bullet
     end
 
     def create_collision_shape(type, **options)
-      shape = case type.to_sym
-              when :box
-                Shapes::BoxShape.new(Vector3.coerce(options.fetch(:half_extents)))
-              when :sphere
-                Shapes::SphereShape.new(Float(options.fetch(:radius)))
-              when :capsule
-                Shapes::CapsuleShape.new(Float(options.fetch(:radius)), Float(options.fetch(:height)))
-              when :cylinder
-                Shapes::CylinderShape.new(Vector3.coerce(options.fetch(:half_extents)))
-              when :cone
-                Shapes::ConeShape.new(Float(options.fetch(:radius)), Float(options.fetch(:height)))
-              when :plane, :static_plane
-                normal = Vector3.coerce(options.fetch(:normal, [0, 1, 0]))
-                Shapes::StaticPlaneShape.new(normal, Float(options.fetch(:offset, 0.0)))
-              else
-                raise ArgumentError, "unsupported collision shape: #{type}"
-              end
-
-      @shapes << shape
-      @shapes.length - 1
+      shape = build_collision_shape(type.to_sym, options)
+      register_shape(shape, type: type.to_sym, options: serializable_options(options))
     end
 
     def create_rigid_body(mass:, collision_shape:, position: [0, 0, 0], orientation: Quaternion.identity)
       shape = shape_for(collision_shape)
-      transform = Transform.new(Quaternion.coerce(orientation), Vector3.coerce(position))
+      position_vector = Vector3.coerce(position)
+      orientation_quaternion = Quaternion.coerce(orientation)
+      transform = Transform.new(orientation_quaternion, position_vector)
       motion_state = MotionState.new(transform)
       info = RigidBodyConstructionInfo.new(Float(mass), motion_state, shape)
       body = RigidBody.new(info)
       world.add_rigid_body(body)
 
       @bodies << body
+      @body_specs << {
+        mass: Float(mass),
+        collision_shape: Integer(collision_shape),
+        position: position_vector.to_a,
+        orientation: orientation_quaternion.to_a
+      }
       @bodies.length - 1
     end
 
@@ -65,6 +62,7 @@ module Bullet
       world.add_constraint(constraint, options.fetch(:disable_collisions_between_linked_bodies, false))
 
       @constraints << constraint
+      @constraint_specs << { type: type.to_sym, options: serializable_options(options) }
       @constraints.length - 1
     end
 
@@ -74,12 +72,12 @@ module Bullet
       links = REXML::XPath.match(document, "/robot/link")
       joints = REXML::XPath.match(document, "/robot/joint")
       raise ArgumentError, "URDF must contain at least one link: #{filename}" if links.empty?
-      raise NotImplementedError, "multi-link URDF loading is not implemented yet" if links.length > 1 || joints.any?
+      return load_multilink_urdf(links, joints, base_position, base_orientation, use_fixed_base, Float(global_scaling), File.dirname(path)) if links.length > 1 || joints.any?
 
       link = links.first
       mass = use_fixed_base ? 0.0 : urdf_link_mass(link)
       shape = urdf_collision_shape(link, Float(global_scaling), File.dirname(path))
-      shape_id = register_shape(shape)
+      shape_id = register_shape(shape, urdf_shape_spec(link, Float(global_scaling), File.dirname(path)))
       body_id = create_rigid_body(
         mass: mass,
         collision_shape: shape_id,
@@ -88,6 +86,29 @@ module Bullet
       )
       apply_urdf_contact(link, body_for(body_id))
       body_id
+    end
+
+    def load_sdf(filename, base_position: [0, 0, 0], base_orientation: Quaternion.identity, global_scaling: 1.0)
+      path = Data.find(filename)
+      document = REXML::Document.new(File.read(path))
+      model_elements = REXML::XPath.match(document, "//model")
+      raise ArgumentError, "SDF must contain at least one model: #{filename}" if model_elements.empty?
+
+      model_elements.flat_map do |model|
+        load_sdf_model(model, base_position, base_orientation, Float(global_scaling), File.dirname(path))
+      end
+    end
+
+    def load_mjcf(filename, base_position: [0, 0, 0], base_orientation: Quaternion.identity, global_scaling: 1.0)
+      path = Data.find(filename)
+      document = REXML::Document.new(File.read(path))
+      body_elements = REXML::XPath.match(document, "/mujoco/worldbody/body")
+      raise ArgumentError, "MJCF must contain at least one worldbody body: #{filename}" if body_elements.empty?
+
+      base_transform = Transform.new(Quaternion.coerce(base_orientation), Vector3.coerce(base_position))
+      body_elements.flat_map do |body|
+        load_mjcf_body(body, base_transform, Float(global_scaling), File.dirname(path))
+      end
     end
 
     def get_base_position_and_orientation(body_id)
@@ -142,13 +163,106 @@ module Bullet
       nil
     end
 
+    def get_num_joints(body_id)
+      model_for(body_id)[:joints].length
+    end
+
+    def get_joint_info(body_id, joint_index)
+      model_for(body_id)[:joints].fetch(Integer(joint_index)) { raise ArgumentError, "unknown joint index: #{joint_index}" }.dup
+    end
+
+    def get_joint_state(body_id, joint_index)
+      joint = get_joint_info(body_id, joint_index)
+      constraint = joint[:constraint_id] && constraint_for(joint[:constraint_id])
+      position = joint_position(joint, constraint)
+      {
+        position: position,
+        velocity: joint[:target_velocity] || 0.0,
+        reaction_forces: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        applied_torque: joint[:applied_torque] || 0.0
+      }
+    end
+
+    def set_joint_motor_control(body_id, joint_index, control_mode:, target_position: nil, target_velocity: 0.0, force: 0.0)
+      model = model_for(body_id)
+      joint = model[:joints].fetch(Integer(joint_index)) { raise ArgumentError, "unknown joint index: #{joint_index}" }
+      constraint = joint[:constraint_id] && constraint_for(joint[:constraint_id])
+      mode = control_mode.to_sym
+
+      case mode
+      when :velocity
+        set_velocity_control(joint, constraint, Float(target_velocity), Float(force))
+      when :position
+        set_position_control(joint, constraint, Float(target_position || 0.0), Float(force))
+      when :torque
+        set_torque_control(joint, Float(force))
+      else
+        raise ArgumentError, "unsupported joint control mode: #{control_mode}"
+      end
+
+      nil
+    end
+
+    def get_camera_image(width, height, camera_eye_position: [0, 0, 5], camera_target_position: [0, 0, 0], camera_up_vector: [0, 1, 0], fov: 60.0, near: 0.01, far: 100.0)
+      width = Integer(width)
+      height = Integer(height)
+      raise ArgumentError, "width and height must be positive" unless width.positive? && height.positive?
+
+      camera = camera_basis(camera_eye_position, camera_target_position, camera_up_vector, Float(fov), Float(far))
+      rgb = []
+      depth = []
+      segmentation = []
+
+      height.times do |row|
+        width.times do |column|
+          hit = camera_ray_hit(camera, column, row, width, height)
+          append_camera_pixel(hit, rgb, depth, segmentation)
+        end
+      end
+
+      [width, height, rgb, depth, segmentation]
+    end
+
+    def save_world(filename)
+      File.write(filename, JSON.pretty_generate(world_snapshot))
+      filename
+    end
+
+    def load_world(filename)
+      data = JSON.parse(File.read(filename), symbolize_names: true)
+      reset_simulation
+
+      data.fetch(:shapes).each { |shape| create_collision_shape(shape.fetch(:type), **symbolize_hash(shape.fetch(:options))) }
+      data.fetch(:bodies).each do |body|
+        next if body.nil?
+
+        create_rigid_body(
+          mass: body.fetch(:mass),
+          collision_shape: body.fetch(:collision_shape),
+          position: body.fetch(:position),
+          orientation: body.fetch(:orientation)
+        )
+      end
+      data.fetch(:constraints, []).each do |constraint|
+        next if constraint.nil?
+
+        create_constraint(constraint.fetch(:type), **symbolize_hash(constraint.fetch(:options)))
+      end
+
+      nil
+    end
+
     def reset_simulation
       @constraints.compact.each { |constraint| world.remove_constraint(constraint) }
       @bodies.compact.each { |body| world.remove_rigid_body(body) }
       @world = DiscreteDynamicsWorld.create
       @bodies.clear
+      @body_specs.clear
       @shapes.clear
+      @shape_specs.clear
       @constraints.clear
+      @constraint_specs.clear
+      @models.clear
       nil
     end
 
@@ -168,6 +282,7 @@ module Bullet
       body = body_for(body_id)
       world.remove_rigid_body(body)
       @bodies[Integer(body_id)] = nil
+      @body_specs[Integer(body_id)] = nil
       nil
     end
 
@@ -175,6 +290,7 @@ module Bullet
       constraint = constraint_for(constraint_id)
       world.remove_constraint(constraint)
       @constraints[Integer(constraint_id)] = nil
+      @constraint_specs[Integer(constraint_id)] = nil
       nil
     end
 
@@ -182,8 +298,12 @@ module Bullet
       @constraints.compact.each { |constraint| world.remove_constraint(constraint) }
       @bodies.compact.each { |body| world.remove_rigid_body(body) }
       @constraints.clear
+      @constraint_specs.clear
       @bodies.clear
+      @body_specs.clear
       @shapes.clear
+      @shape_specs.clear
+      @models.clear
       nil
     end
 
@@ -210,8 +330,13 @@ module Bullet
         raise(ArgumentError, "unknown constraint id: #{constraint_id}")
     end
 
-    def register_shape(shape)
+    def model_for(body_id)
+      @models.fetch(Integer(body_id)) { raise ArgumentError, "body has no joints: #{body_id}" }
+    end
+
+    def register_shape(shape, spec = nil)
       @shapes << shape
+      @shape_specs << spec
       @shapes.length - 1
     end
 
@@ -219,6 +344,28 @@ module Bullet
       return Vector3.coerce(x) if y.nil? && z.nil?
 
       Vector3.new(x, y, z)
+    end
+
+    def build_collision_shape(type, options)
+      case type
+      when :box
+        Shapes::BoxShape.new(Vector3.coerce(options.fetch(:half_extents)))
+      when :sphere
+        Shapes::SphereShape.new(Float(options.fetch(:radius)))
+      when :capsule
+        Shapes::CapsuleShape.new(Float(options.fetch(:radius)), Float(options.fetch(:height)))
+      when :cylinder
+        Shapes::CylinderShape.new(Vector3.coerce(options.fetch(:half_extents)))
+      when :cone
+        Shapes::ConeShape.new(Float(options.fetch(:radius)), Float(options.fetch(:height)))
+      when :plane, :static_plane
+        Shapes::StaticPlaneShape.new(Vector3.coerce(options.fetch(:normal, [0, 1, 0])), Float(options.fetch(:offset, 0.0)))
+      when :mesh, :triangle_mesh
+        triangles = options[:triangles] || load_obj_triangles(Data.find(options.fetch(:filename)), vector_scale(options[:scale], 1.0))
+        Shapes::TriangleMeshShape.new(triangles)
+      else
+        raise ArgumentError, "unsupported collision shape: #{type}"
+      end
     end
 
     def build_constraint(type, options)
@@ -306,6 +453,437 @@ module Bullet
       raise ArgumentError, "#{type} constraint requires body_b" unless body_b
     end
 
+    def load_multilink_urdf(links, joints, base_position, base_orientation, use_fixed_base, global_scaling, base_path)
+      links_by_name = links.to_h { |link| [link.attributes["name"], link] }
+      root_name = urdf_root_link_name(links_by_name, joints)
+      base_transform = Transform.new(Quaternion.coerce(base_orientation), Vector3.coerce(base_position))
+      link_transforms = { root_name => base_transform }
+      link_body_ids = {
+        root_name => create_urdf_link_body(links_by_name.fetch(root_name), base_transform, use_fixed_base, true, global_scaling, base_path)
+      }
+      joint_infos = []
+      pending_joints = joints.dup
+
+      until pending_joints.empty?
+        progressed = false
+        pending_joints.delete_if do |joint|
+          parent_name = urdf_joint_parent(joint)
+          child_name = urdf_joint_child(joint)
+          next false unless link_body_ids[parent_name]
+
+          origin = urdf_origin_transform(REXML::XPath.first(joint, "origin"), global_scaling)
+          child_transform = link_transforms.fetch(parent_name) * origin
+          link_transforms[child_name] = child_transform
+          link_body_ids[child_name] = create_urdf_link_body(links_by_name.fetch(child_name), child_transform, false, false, global_scaling, base_path)
+          joint_infos << create_urdf_joint(joint, link_body_ids.fetch(parent_name), link_body_ids.fetch(child_name), origin)
+          progressed = true
+        end
+
+        raise ArgumentError, "URDF joint graph is disconnected or cyclic" unless progressed
+      end
+
+      base_id = link_body_ids.fetch(root_name)
+      @models[base_id] = {
+        links: link_body_ids.keys,
+        body_ids: link_body_ids.values,
+        joints: joint_infos
+      }
+      base_id
+    end
+
+    def urdf_root_link_name(links_by_name, joints)
+      child_names = joints.map { |joint| urdf_joint_child(joint) }
+      (links_by_name.keys - child_names).first || links_by_name.keys.first
+    end
+
+    def urdf_joint_parent(joint)
+      REXML::XPath.first(joint, "parent").attributes["link"]
+    end
+
+    def urdf_joint_child(joint)
+      REXML::XPath.first(joint, "child").attributes["link"]
+    end
+
+    def create_urdf_link_body(link, transform, use_fixed_base, root_link, global_scaling, base_path)
+      shape = urdf_link_collision_shape(link, global_scaling, base_path)
+      shape_id = register_shape(shape, urdf_shape_spec(link, global_scaling, base_path))
+      body_id = create_rigid_body(
+        mass: use_fixed_base && root_link ? 0.0 : urdf_link_mass(link),
+        collision_shape: shape_id,
+        position: transform.origin.to_a,
+        orientation: transform.rotation.to_a
+      )
+      apply_urdf_contact(link, body_for(body_id))
+      body_id
+    end
+
+    def urdf_link_collision_shape(link, global_scaling, base_path)
+      urdf_collision_shape(link, global_scaling, base_path)
+    rescue ArgumentError => error
+      raise unless error.message.include?("no collision geometry")
+
+      Shapes::SphereShape.new(0.001 * global_scaling)
+    end
+
+    def create_urdf_joint(joint, parent_body_id, child_body_id, origin)
+      type = joint.attributes["type"].to_s
+      axis = urdf_joint_axis(joint)
+      limits = urdf_joint_limits(joint)
+      constraint_id = case type
+                      when "fixed"
+                        create_constraint(:fixed, body_a: parent_body_id, body_b: child_body_id, frame_in_a: origin, frame_in_b: Transform.identity)
+                      when "revolute", "continuous"
+                        id = create_constraint(
+                          :hinge,
+                          body_a: parent_body_id,
+                          body_b: child_body_id,
+                          pivot_in_a: origin.origin.to_a,
+                          pivot_in_b: [0, 0, 0],
+                          axis_in_a: axis,
+                          axis_in_b: axis
+                        )
+                        constraint(id).set_limit(limits[:lower], limits[:upper]) if type == "revolute" && limits[:lower] && limits[:upper]
+                        id
+                      when "prismatic"
+                        id = create_constraint(:slider, body_a: parent_body_id, body_b: child_body_id, frame_in_a: origin, frame_in_b: Transform.identity)
+                        constraint(id).lower_linear_limit = limits[:lower] if limits[:lower]
+                        constraint(id).upper_linear_limit = limits[:upper] if limits[:upper]
+                        id
+                      else
+                        create_constraint(:fixed, body_a: parent_body_id, body_b: child_body_id, frame_in_a: origin, frame_in_b: Transform.identity)
+                      end
+
+      {
+        name: joint.attributes["name"].to_s,
+        type: type.empty? ? "fixed" : type,
+        parent_body: parent_body_id,
+        child_body: child_body_id,
+        constraint_id: constraint_id,
+        axis: axis,
+        lower_limit: limits[:lower],
+        upper_limit: limits[:upper],
+        target_velocity: 0.0,
+        applied_torque: 0.0
+      }
+    end
+
+    def urdf_joint_axis(joint)
+      axis = REXML::XPath.first(joint, "axis")
+      axis ? float_list(axis.attributes["xyz"]) : [1.0, 0.0, 0.0]
+    end
+
+    def urdf_joint_limits(joint)
+      limit = REXML::XPath.first(joint, "limit")
+      return {} unless limit
+
+      {
+        lower: limit.attributes["lower"] && Float(limit.attributes["lower"]),
+        upper: limit.attributes["upper"] && Float(limit.attributes["upper"]),
+        effort: limit.attributes["effort"] && Float(limit.attributes["effort"]),
+        velocity: limit.attributes["velocity"] && Float(limit.attributes["velocity"])
+      }
+    end
+
+    def joint_position(joint, constraint)
+      return 0.0 unless constraint
+
+      case joint[:type]
+      when "revolute", "continuous"
+        constraint.angle
+      when "prismatic"
+        constraint.linear_position
+      else
+        0.0
+      end
+    end
+
+    def set_velocity_control(joint, constraint, target_velocity, force)
+      joint[:target_velocity] = target_velocity
+      joint[:applied_torque] = force
+      case joint[:type]
+      when "revolute", "continuous"
+        constraint&.enable_angular_motor(true, target_velocity, force)
+      when "prismatic"
+        constraint.powered_linear_motor = true if constraint
+        constraint.target_linear_motor_velocity = target_velocity if constraint
+        constraint.max_linear_motor_force = force if constraint
+      end
+    end
+
+    def set_position_control(joint, constraint, target_position, force)
+      joint[:target_velocity] = 0.0
+      joint[:applied_torque] = force
+      case joint[:type]
+      when "revolute", "continuous"
+        constraint&.set_limit(target_position, target_position)
+        constraint&.enable_angular_motor(true, 0.0, force)
+      when "prismatic"
+        if constraint
+          constraint.lower_linear_limit = target_position
+          constraint.upper_linear_limit = target_position
+          constraint.max_linear_motor_force = force
+        end
+      end
+    end
+
+    def set_torque_control(joint, force)
+      joint[:applied_torque] = force
+      axis = joint[:axis]
+      body_for(joint.fetch(:child_body)).apply_torque(axis.map { |component| component * force })
+    end
+
+    def load_sdf_model(model, base_position, base_orientation, global_scaling, base_path)
+      model_transform = Transform.new(Quaternion.coerce(base_orientation), Vector3.coerce(base_position)) *
+        sdf_pose_transform(REXML::XPath.first(model, "pose"), global_scaling)
+
+      REXML::XPath.match(model, "link").map do |link|
+        link_transform = model_transform * sdf_pose_transform(REXML::XPath.first(link, "pose"), global_scaling)
+        shape = sdf_link_collision_shape(link, global_scaling, base_path)
+        shape_id = register_shape(shape)
+        create_rigid_body(
+          mass: sdf_link_mass(link),
+          collision_shape: shape_id,
+          position: link_transform.origin.to_a,
+          orientation: link_transform.rotation.to_a
+        )
+      end
+    end
+
+    def sdf_link_mass(link)
+      mass = REXML::XPath.first(link, "inertial/mass")
+      mass ? Float(mass.text) : 0.0
+    end
+
+    def sdf_link_collision_shape(link, global_scaling, base_path)
+      collisions = REXML::XPath.match(link, "collision")
+      raise ArgumentError, "SDF link has no collision geometry" if collisions.empty?
+
+      shapes = collisions.map do |collision|
+        geometry = REXML::XPath.first(collision, "geometry")
+        [sdf_geometry_shape(geometry, global_scaling, base_path), sdf_pose_transform(REXML::XPath.first(collision, "pose"), global_scaling)]
+      end
+      return shapes.first.first if shapes.length == 1 && identity_transform?(shapes.first.last)
+
+      compound = Shapes::CompoundShape.new
+      shapes.each { |shape, transform| compound.add_child_shape(transform, shape) }
+      compound
+    end
+
+    def sdf_geometry_shape(geometry, global_scaling, base_path)
+      if (box = REXML::XPath.first(geometry, "box"))
+        half_extents = float_list(REXML::XPath.first(box, "size").text).map { |value| value * global_scaling * 0.5 }
+        return Shapes::BoxShape.new(Vector3.coerce(half_extents))
+      end
+      if (sphere = REXML::XPath.first(geometry, "sphere"))
+        return Shapes::SphereShape.new(Float(REXML::XPath.first(sphere, "radius").text) * global_scaling)
+      end
+      if (cylinder = REXML::XPath.first(geometry, "cylinder"))
+        radius = Float(REXML::XPath.first(cylinder, "radius").text) * global_scaling
+        length = Float(REXML::XPath.first(cylinder, "length").text) * global_scaling
+        return Shapes::CylinderShape.new(Vector3.new(radius, length * 0.5, radius))
+      end
+      if (plane = REXML::XPath.first(geometry, "plane"))
+        normal = REXML::XPath.first(plane, "normal")&.text || "0 0 1"
+        return Shapes::StaticPlaneShape.new(Vector3.coerce(float_list(normal)), 0.0)
+      end
+      if (mesh = REXML::XPath.first(geometry, "mesh"))
+        uri = REXML::XPath.first(mesh, "uri").text
+        scale = vector_scale(REXML::XPath.first(mesh, "scale")&.text, global_scaling)
+        return Shapes::TriangleMeshShape.new(load_obj_triangles(resolve_mesh_filename(uri, base_path), scale))
+      end
+
+      raise ArgumentError, "unsupported SDF collision geometry"
+    end
+
+    def sdf_pose_transform(pose, global_scaling)
+      return Transform.identity unless pose
+
+      values = float_list(pose.text)
+      xyz = [values[0] || 0.0, values[1] || 0.0, values[2] || 0.0].map { |value| value * global_scaling }
+      rpy = [values[3] || 0.0, values[4] || 0.0, values[5] || 0.0]
+      Transform.new(Quaternion.from_euler(*rpy), Vector3.coerce(xyz))
+    end
+
+    def load_mjcf_body(body_element, parent_transform, global_scaling, base_path)
+      body_transform = parent_transform * mjcf_body_transform(body_element, global_scaling)
+      body_ids = []
+      geoms = REXML::XPath.match(body_element, "geom")
+      unless geoms.empty?
+        shape = mjcf_geoms_shape(geoms, global_scaling, base_path)
+        shape_id = register_shape(shape)
+        body_ids << create_rigid_body(
+          mass: mjcf_body_mass(body_element, geoms),
+          collision_shape: shape_id,
+          position: body_transform.origin.to_a,
+          orientation: body_transform.rotation.to_a
+        )
+      end
+
+      REXML::XPath.match(body_element, "body").each do |child|
+        body_ids.concat(load_mjcf_body(child, body_transform, global_scaling, base_path))
+      end
+      body_ids
+    end
+
+    def mjcf_body_transform(body_element, global_scaling)
+      position = float_list(body_element.attributes["pos"] || "0 0 0").map { |value| value * global_scaling }
+      orientation = body_element.attributes["quat"] ? Quaternion.coerce(float_list(body_element.attributes["quat"])) : Quaternion.identity
+      Transform.new(orientation, Vector3.coerce(position))
+    end
+
+    def mjcf_body_mass(body_element, geoms)
+      Float(body_element.attributes["mass"] || geoms.lazy.map { |geom| geom.attributes["mass"] }.find(&:itself) || 1.0)
+    end
+
+    def mjcf_geoms_shape(geoms, global_scaling, base_path)
+      shapes = geoms.map do |geom|
+        [mjcf_geom_shape(geom, global_scaling, base_path), mjcf_geom_transform(geom, global_scaling)]
+      end
+      return shapes.first.first if shapes.length == 1 && identity_transform?(shapes.first.last)
+
+      compound = Shapes::CompoundShape.new
+      shapes.each { |shape, transform| compound.add_child_shape(transform, shape) }
+      compound
+    end
+
+    def mjcf_geom_shape(geom, global_scaling, base_path)
+      type = geom.attributes["type"] || "sphere"
+      size = float_list(geom.attributes["size"] || "1")
+      case type
+      when "box"
+        Shapes::BoxShape.new(Vector3.coerce(size.first(3).map { |value| value * global_scaling }))
+      when "sphere"
+        Shapes::SphereShape.new(Float(size.fetch(0)) * global_scaling)
+      when "capsule"
+        Shapes::CapsuleShape.new(Float(size.fetch(0)) * global_scaling, Float(size.fetch(1, size.fetch(0))) * global_scaling * 2.0)
+      when "cylinder"
+        radius = Float(size.fetch(0)) * global_scaling
+        half_height = Float(size.fetch(1, size.fetch(0))) * global_scaling
+        Shapes::CylinderShape.new(Vector3.new(radius, half_height, radius))
+      when "mesh"
+        filename = geom.attributes["file"] || geom.attributes["mesh"]
+        Shapes::TriangleMeshShape.new(load_obj_triangles(resolve_mesh_filename(filename, base_path), [global_scaling, global_scaling, global_scaling]))
+      else
+        raise ArgumentError, "unsupported MJCF geom type: #{type}"
+      end
+    end
+
+    def mjcf_geom_transform(geom, global_scaling)
+      position = float_list(geom.attributes["pos"] || "0 0 0").map { |value| value * global_scaling }
+      orientation = geom.attributes["quat"] ? Quaternion.coerce(float_list(geom.attributes["quat"])) : Quaternion.identity
+      Transform.new(orientation, Vector3.coerce(position))
+    end
+
+    def camera_basis(eye, target, up, fov, far)
+      eye = vector_array(eye)
+      target = vector_array(target)
+      forward = normalize_vector(vector_subtract(target, eye))
+      right = normalize_vector(cross_vector(forward, vector_array(up)))
+      camera_up = normalize_vector(cross_vector(right, forward))
+      {
+        eye: eye,
+        forward: forward,
+        right: right,
+        up: camera_up,
+        scale: Math.tan(fov * Math::PI / 360.0),
+        far: far
+      }
+    end
+
+    def camera_ray_hit(camera, column, row, width, height)
+      aspect = width.to_f / height
+      x = ((column + 0.5) / width * 2.0 - 1.0) * aspect * camera.fetch(:scale)
+      y = (1.0 - (row + 0.5) / height * 2.0) * camera.fetch(:scale)
+      direction = normalize_vector(vector_add(camera.fetch(:forward), vector_add(vector_scale_array(camera.fetch(:right), x), vector_scale_array(camera.fetch(:up), y))))
+      ray_to = vector_add(camera.fetch(:eye), vector_scale_array(direction, camera.fetch(:far)))
+      ray_test(camera.fetch(:eye), ray_to)
+    end
+
+    def append_camera_pixel(hit, rgb, depth, segmentation)
+      if hit
+        body_id = body_id_for(hit[:body]) || -1
+        rgb.concat([220, 220, 220, 255])
+        depth << hit[:fraction]
+        segmentation << body_id
+      else
+        rgb.concat([0, 0, 0, 255])
+        depth << 1.0
+        segmentation << -1
+      end
+    end
+
+    def world_snapshot
+      {
+        shapes: @shape_specs.map { |spec| spec || raise(ArgumentError, "world contains an unserializable shape") },
+        bodies: @body_specs.each_with_index.map { |spec, index| spec && body_snapshot(index, spec) },
+        constraints: @constraint_specs
+      }
+    end
+
+    def body_snapshot(index, spec)
+      transform = body_for(index).world_transform
+      spec.merge(position: transform.origin.to_a, orientation: transform.rotation.to_a)
+    end
+
+    def serializable_options(value)
+      case value
+      when Hash
+        value.to_h { |key, child| [key, serializable_options(child)] }
+      when Array
+        value.map { |child| serializable_options(child) }
+      when Transform
+        { position: value.origin.to_a, orientation: value.rotation.to_a }
+      when Vector3, Quaternion
+        value.to_a
+      when Symbol
+        value.to_s
+      else
+        value
+      end
+    end
+
+    def symbolize_hash(value)
+      case value
+      when Hash
+        value.to_h { |key, child| [key.to_sym, symbolize_hash(child)] }
+      when Array
+        value.map { |child| symbolize_hash(child) }
+      else
+        value
+      end
+    end
+
+    def vector_array(value)
+      Vector3.coerce(value).to_a
+    end
+
+    def vector_add(left, right)
+      left.zip(right).map { |a, b| a + b }
+    end
+
+    def vector_subtract(left, right)
+      left.zip(right).map { |a, b| a - b }
+    end
+
+    def vector_scale_array(vector, scalar)
+      vector.map { |component| component * scalar }
+    end
+
+    def cross_vector(left, right)
+      [
+        left[1] * right[2] - left[2] * right[1],
+        left[2] * right[0] - left[0] * right[2],
+        left[0] * right[1] - left[1] * right[0]
+      ]
+    end
+
+    def normalize_vector(vector)
+      length = Math.sqrt(vector.sum { |component| component * component })
+      raise ArgumentError, "cannot normalize zero-length vector" if length.zero?
+
+      vector.map { |component| component / length }
+    end
+
     def manifold_contacts
       world.contact_manifolds.flat_map do |manifold|
         manifold[:points].map do |point|
@@ -326,6 +904,38 @@ module Bullet
       return 0.0 unless mass_element
 
       Float(mass_element.attributes["value"])
+    end
+
+    def urdf_shape_spec(link, global_scaling, base_path)
+      collisions = REXML::XPath.match(link, "collision")
+      return nil unless collisions.length == 1
+
+      collision = collisions.first
+      return nil unless identity_transform?(urdf_origin_transform(REXML::XPath.first(collision, "origin"), global_scaling))
+
+      urdf_geometry_shape_spec(REXML::XPath.first(collision, "geometry"), global_scaling, base_path)
+    end
+
+    def urdf_geometry_shape_spec(geometry, global_scaling, base_path)
+      if (box = REXML::XPath.first(geometry, "box"))
+        return { type: :box, options: { half_extents: float_list(box.attributes["size"]).map { |value| value * global_scaling * 0.5 } } }
+      end
+      if (sphere = REXML::XPath.first(geometry, "sphere"))
+        return { type: :sphere, options: { radius: Float(sphere.attributes["radius"]) * global_scaling } }
+      end
+      if (cylinder = REXML::XPath.first(geometry, "cylinder"))
+        radius = Float(cylinder.attributes["radius"]) * global_scaling
+        length = Float(cylinder.attributes["length"]) * global_scaling
+        return { type: :cylinder, options: { half_extents: [radius, length * 0.5, radius] } }
+      end
+      if (capsule = REXML::XPath.first(geometry, "capsule"))
+        return { type: :capsule, options: { radius: Float(capsule.attributes["radius"]) * global_scaling, height: Float(capsule.attributes["length"]) * global_scaling } }
+      end
+      if (mesh = REXML::XPath.first(geometry, "mesh"))
+        return { type: :mesh, options: { filename: resolve_mesh_filename(mesh.attributes["filename"], base_path), scale: vector_scale(mesh.attributes["scale"], global_scaling) } }
+      end
+
+      nil
     end
 
     def urdf_collision_shape(link, global_scaling, base_path)

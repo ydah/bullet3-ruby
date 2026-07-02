@@ -839,6 +839,7 @@ module Bullet
     }
 
     attr_reader world: DiscreteDynamicsWorld
+    attr_reader mode: Symbol
 
     def initialize: (?mode: Symbol) -> void
     def set_gravity: (Numeric x, ?Numeric y, ?Numeric z) -> Vector3
@@ -848,6 +849,8 @@ module Bullet
     def create_rigid_body: (mass: Numeric, collision_shape: Integer, ?position: Vector3 | [Numeric, Numeric, Numeric], ?orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric]) -> Integer
     def create_constraint: (Symbol | String type, **untyped options) -> Integer
     def load_urdf: (String filename, ?base_position: Vector3 | [Numeric, Numeric, Numeric], ?base_orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?use_fixed_base: bool, ?global_scaling: Numeric) -> Integer
+    def load_sdf: (String filename, ?base_position: Vector3 | [Numeric, Numeric, Numeric], ?base_orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?global_scaling: Numeric) -> Array[Integer]
+    def load_mjcf: (String filename, ?base_position: Vector3 | [Numeric, Numeric, Numeric], ?base_orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?global_scaling: Numeric) -> Array[Integer]
     def get_base_position_and_orientation: (Integer body_id) -> [[Float, Float, Float], [Float, Float, Float, Float]]
     def set_base_position_and_orientation: (Integer body_id, Vector3 | [Numeric, Numeric, Numeric] position, ?Quaternion | [Numeric, Numeric, Numeric, Numeric] orientation) -> nil
     def get_aabb: (Integer body_id) -> [[Float, Float, Float], [Float, Float, Float]]
@@ -856,6 +859,13 @@ module Bullet
     def ray_test_batch: (Array[[Vector3 | [Numeric, Numeric, Numeric], Vector3 | [Numeric, Numeric, Numeric]]] rays) -> Array[DiscreteDynamicsWorld::ray_hit?]
     def get_contact_points: (?body_a: Integer?, ?body_b: Integer?) -> Array[contact_point]
     def change_dynamics: (Integer body_id, ?lateral_friction: Numeric?, ?restitution: Numeric?) -> nil
+    def get_num_joints: (Integer body_id) -> Integer
+    def get_joint_info: (Integer body_id, Integer joint_index) -> Hash[Symbol, untyped]
+    def get_joint_state: (Integer body_id, Integer joint_index) -> Hash[Symbol, untyped]
+    def set_joint_motor_control: (Integer body_id, Integer joint_index, control_mode: Symbol | String, ?target_position: Numeric?, ?target_velocity: Numeric, ?force: Numeric) -> nil
+    def get_camera_image: (Integer width, Integer height, ?camera_eye_position: Vector3 | [Numeric, Numeric, Numeric], ?camera_target_position: Vector3 | [Numeric, Numeric, Numeric], ?camera_up_vector: Vector3 | [Numeric, Numeric, Numeric], ?fov: Numeric, ?near: Numeric, ?far: Numeric) -> [Integer, Integer, Array[Integer], Array[Float], Array[Integer]]
+    def save_world: (String filename) -> String
+    def load_world: (String filename) -> nil
     def body: (Integer body_id) -> RigidBody
     def collision_shape: (Integer shape_id) -> Shapes::CollisionShape
     def constraint: (Integer constraint_id) -> Constraints::TypedConstraint

@@ -98,6 +98,117 @@ RSpec.describe Bullet::Simulation do
     end
   end
 
+  it "loads multi-link URDF files and exposes joint control state" do
+    Dir.mktmpdir do |dir|
+      File.write(
+        File.join(dir, "arm.urdf"),
+        <<~URDF
+          <robot name="arm">
+            <link name="base">
+              <collision><geometry><box size="1 1 1"/></geometry></collision>
+            </link>
+            <link name="tip">
+              <inertial><mass value="1"/></inertial>
+              <collision><geometry><sphere radius="0.25"/></geometry></collision>
+            </link>
+            <joint name="shoulder" type="revolute">
+              <parent link="base"/>
+              <child link="tip"/>
+              <origin xyz="0 1 0" rpy="0 0 0"/>
+              <axis xyz="0 0 1"/>
+              <limit lower="-1" upper="1" effort="5" velocity="2"/>
+            </joint>
+          </robot>
+        URDF
+      )
+
+      sim = described_class.new
+      base_id = sim.load_urdf(File.join(dir, "arm.urdf"), use_fixed_base: true)
+
+      expect(sim.get_num_joints(base_id)).to eq(1)
+      expect(sim.get_joint_info(base_id, 0)).to include(name: "shoulder", type: "revolute")
+      expect(sim.world.num_constraints).to eq(1)
+
+      sim.set_joint_motor_control(base_id, 0, control_mode: :velocity, target_velocity: 0.5, force: 2.0)
+      expect(sim.get_joint_state(base_id, 0)).to include(velocity: 0.5, applied_torque: 2.0)
+    ensure
+      sim&.disconnect
+    end
+  end
+
+  it "loads simple SDF and MJCF models" do
+    Dir.mktmpdir do |dir|
+      File.write(
+        File.join(dir, "box.sdf"),
+        <<~SDF
+          <sdf version="1.6">
+            <model name="box">
+              <link name="body">
+                <inertial><mass>0</mass></inertial>
+                <collision name="collision">
+                  <geometry><box><size>2 2 2</size></box></geometry>
+                </collision>
+              </link>
+            </model>
+          </sdf>
+        SDF
+      )
+      File.write(
+        File.join(dir, "box.xml"),
+        <<~MJCF
+          <mujoco>
+            <worldbody>
+              <body name="box" pos="0 0 0">
+                <geom type="box" size="1 1 1" mass="0"/>
+              </body>
+            </worldbody>
+          </mujoco>
+        MJCF
+      )
+
+      sim = described_class.new
+      sdf_body = sim.load_sdf(File.join(dir, "box.sdf")).first
+      mjcf_body = sim.load_mjcf(File.join(dir, "box.xml")).first
+
+      expect(sim.get_aabb(sdf_body)).to eq([[-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]])
+      expect(sim.get_aabb(mjcf_body)).to eq([[-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]])
+    ensure
+      sim&.disconnect
+    end
+  end
+
+  it "renders camera rays and saves loadable world snapshots" do
+    Dir.mktmpdir do |dir|
+      sim = described_class.new(mode: :gui)
+      shape = sim.create_collision_shape(:sphere, radius: 1.0)
+      body_id = sim.create_rigid_body(mass: 0.0, collision_shape: shape)
+
+      width, height, rgb, depth, segmentation = sim.get_camera_image(
+        5,
+        5,
+        camera_eye_position: [0, 0, 5],
+        camera_target_position: [0, 0, 0],
+        camera_up_vector: [0, 1, 0]
+      )
+      path = File.join(dir, "world.json")
+      sim.save_world(path)
+
+      loaded = described_class.new
+      loaded.load_world(path)
+
+      expect(sim.mode).to eq(:gui)
+      expect([width, height]).to eq([5, 5])
+      expect(rgb.length).to eq(5 * 5 * 4)
+      expect(depth.length).to eq(25)
+      expect(segmentation).to include(body_id)
+      expect(loaded.world.num_collision_objects).to eq(1)
+      expect(loaded.get_base_position_and_orientation(0).first).to eq([0.0, 0.0, 0.0])
+    ensure
+      loaded&.disconnect
+      sim&.disconnect
+    end
+  end
+
   it "exposes high-level query and dynamics helpers" do
     sim = described_class.new
     plane_shape = sim.create_collision_shape(:static_plane, normal: [0, 1, 0], offset: 0)
