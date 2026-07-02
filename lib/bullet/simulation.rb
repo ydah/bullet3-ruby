@@ -13,6 +13,7 @@ module Bullet
       @world = DiscreteDynamicsWorld.create
       @shapes = []
       @bodies = []
+      @constraints = []
     end
 
     def set_gravity(x, y = nil, z = nil)
@@ -57,6 +58,14 @@ module Bullet
 
       @bodies << body
       @bodies.length - 1
+    end
+
+    def create_constraint(type, **options)
+      constraint = build_constraint(type.to_sym, options)
+      world.add_constraint(constraint, options.fetch(:disable_collisions_between_linked_bodies, false))
+
+      @constraints << constraint
+      @constraints.length - 1
     end
 
     def load_urdf(filename, base_position: [0, 0, 0], base_orientation: Quaternion.identity, use_fixed_base: false, global_scaling: 1.0)
@@ -134,10 +143,12 @@ module Bullet
     end
 
     def reset_simulation
+      @constraints.compact.each { |constraint| world.remove_constraint(constraint) }
       @bodies.compact.each { |body| world.remove_rigid_body(body) }
       @world = DiscreteDynamicsWorld.create
       @bodies.clear
       @shapes.clear
+      @constraints.clear
       nil
     end
 
@@ -149,6 +160,10 @@ module Bullet
       shape_for(shape_id)
     end
 
+    def constraint(constraint_id)
+      constraint_for(constraint_id)
+    end
+
     def remove_body(body_id)
       body = body_for(body_id)
       world.remove_rigid_body(body)
@@ -156,8 +171,17 @@ module Bullet
       nil
     end
 
+    def remove_constraint(constraint_id)
+      constraint = constraint_for(constraint_id)
+      world.remove_constraint(constraint)
+      @constraints[Integer(constraint_id)] = nil
+      nil
+    end
+
     def disconnect
+      @constraints.compact.each { |constraint| world.remove_constraint(constraint) }
       @bodies.compact.each { |body| world.remove_rigid_body(body) }
+      @constraints.clear
       @bodies.clear
       @shapes.clear
       nil
@@ -181,6 +205,11 @@ module Bullet
         raise(ArgumentError, "unknown collision shape id: #{shape_id}")
     end
 
+    def constraint_for(constraint_id)
+      @constraints.fetch(Integer(constraint_id)) { raise ArgumentError, "unknown constraint id: #{constraint_id}" } ||
+        raise(ArgumentError, "unknown constraint id: #{constraint_id}")
+    end
+
     def register_shape(shape)
       @shapes << shape
       @shapes.length - 1
@@ -190,6 +219,91 @@ module Bullet
       return Vector3.coerce(x) if y.nil? && z.nil?
 
       Vector3.new(x, y, z)
+    end
+
+    def build_constraint(type, options)
+      body_a = body_for(options.fetch(:body_a))
+      body_b = options.key?(:body_b) && !options[:body_b].nil? ? body_for(options[:body_b]) : nil
+
+      case type
+      when :point2point, :p2p
+        build_point2point_constraint(body_a, body_b, options)
+      when :hinge
+        build_hinge_constraint(body_a, body_b, options)
+      when :fixed
+        require_body_b!(body_b, type)
+        Constraints::FixedConstraint.new(body_a, body_b, transform_option(options, :frame_in_a), transform_option(options, :frame_in_b))
+      when :slider
+        build_frame_constraint(Constraints::SliderConstraint, body_a, body_b, options)
+      when :cone_twist
+        build_frame_constraint(Constraints::ConeTwistConstraint, body_a, body_b, options)
+      when :generic_6dof
+        build_frame_constraint(Constraints::Generic6DofConstraint, body_a, body_b, options)
+      when :generic_6dof_spring2
+        build_frame_constraint(Constraints::Generic6DofSpring2Constraint, body_a, body_b, options, options.fetch(:rotate_order, 0))
+      when :gear
+        require_body_b!(body_b, type)
+        Constraints::GearConstraint.new(
+          body_a,
+          body_b,
+          options.fetch(:axis_in_a, [0, 1, 0]),
+          options.fetch(:axis_in_b, [0, 1, 0]),
+          Float(options.fetch(:ratio, 1.0))
+        )
+      when :hinge2
+        require_body_b!(body_b, type)
+        Constraints::Hinge2Constraint.new(
+          body_a,
+          body_b,
+          options.fetch(:anchor, [0, 0, 0]),
+          options.fetch(:axis_in_a, [0, 1, 0]),
+          options.fetch(:axis_in_b, [1, 0, 0])
+        )
+      else
+        raise ArgumentError, "unsupported constraint type: #{type}"
+      end
+    end
+
+    def build_point2point_constraint(body_a, body_b, options)
+      pivot_a = options.fetch(:pivot_in_a, [0, 0, 0])
+      return Constraints::Point2PointConstraint.new(body_a, pivot_a) unless body_b
+
+      Constraints::Point2PointConstraint.new(body_a, body_b, pivot_a, options.fetch(:pivot_in_b, [0, 0, 0]))
+    end
+
+    def build_hinge_constraint(body_a, body_b, options)
+      pivot_a = options.fetch(:pivot_in_a, [0, 0, 0])
+      axis_a = options.fetch(:axis_in_a, [0, 1, 0])
+      use_reference_frame_a = options.fetch(:use_reference_frame_a, false)
+      return Constraints::HingeConstraint.new(body_a, pivot_a, axis_a, use_reference_frame_a) unless body_b
+
+      Constraints::HingeConstraint.new(
+        body_a,
+        body_b,
+        pivot_a,
+        options.fetch(:pivot_in_b, [0, 0, 0]),
+        axis_a,
+        options.fetch(:axis_in_b, [0, 1, 0]),
+        use_reference_frame_a
+      )
+    end
+
+    def build_frame_constraint(klass, body_a, body_b, options, *extra_args)
+      frame_a = transform_option(options, :frame_in_a)
+      return klass.new(body_a, frame_a, *extra_args) unless body_b
+
+      klass.new(body_a, body_b, frame_a, transform_option(options, :frame_in_b), *extra_args)
+    end
+
+    def transform_option(options, key)
+      value = options.fetch(key, Transform.identity)
+      return value if value.is_a?(Transform)
+
+      Transform.new(Quaternion.coerce(value.fetch(:orientation, Quaternion.identity)), Vector3.coerce(value.fetch(:position, [0, 0, 0])))
+    end
+
+    def require_body_b!(body_b, type)
+      raise ArgumentError, "#{type} constraint requires body_b" unless body_b
     end
 
     def manifold_contacts

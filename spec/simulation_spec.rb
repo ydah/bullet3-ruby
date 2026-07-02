@@ -86,4 +86,37 @@ RSpec.describe Bullet::Simulation do
   ensure
     sim&.disconnect
   end
+
+  it "creates and removes high-level constraints" do
+    sim = described_class.new
+    shape = sim.create_collision_shape(:sphere, radius: 0.5)
+    body_a = sim.create_rigid_body(mass: 1.0, collision_shape: shape, position: [0, 1, 0])
+    body_b = sim.create_rigid_body(mass: 1.0, collision_shape: shape, position: [1, 1, 0])
+
+    p2p = sim.create_constraint(
+      :point2point,
+      body_a: body_a,
+      body_b: body_b,
+      pivot_in_a: [0, 0, 0],
+      pivot_in_b: [0, 0, 0],
+      disable_collisions_between_linked_bodies: true
+    )
+    fixed = sim.create_constraint(
+      :fixed,
+      body_a: body_a,
+      body_b: body_b,
+      frame_in_a: Bullet::Transform.identity,
+      frame_in_b: Bullet::Transform.identity
+    )
+
+    expect(sim.constraint(p2p).constraint_type).to eq(:point2point)
+    expect(sim.constraint(fixed).constraint_type).to eq(:fixed)
+    expect(sim.world.num_constraints).to eq(2)
+
+    sim.remove_constraint(p2p)
+    expect { sim.constraint(p2p) }.to raise_error(ArgumentError)
+    expect(sim.world.num_constraints).to eq(1)
+  ensure
+    sim&.disconnect
+  end
 end
