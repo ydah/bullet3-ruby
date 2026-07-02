@@ -822,6 +822,22 @@ module Bullet
   end
 
   class Simulation
+    type ray_hit = DiscreteDynamicsWorld::ray_hit
+
+    type contact_point = {
+      body0: Integer?,
+      body1: Integer?,
+      position_world_on_a: Vector3,
+      position_world_on_b: Vector3,
+      normal_world_on_b: Vector3,
+      distance: Float,
+      part_id0: Integer?,
+      index0: Integer?,
+      part_id1: Integer?,
+      index1: Integer?,
+      life_time: Integer?
+    }
+
     attr_reader world: DiscreteDynamicsWorld
 
     def initialize: (?mode: Symbol) -> void
@@ -832,11 +848,17 @@ module Bullet
     def create_rigid_body: (mass: Numeric, collision_shape: Integer, ?position: Vector3 | [Numeric, Numeric, Numeric], ?orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric]) -> Integer
     def load_urdf: (String filename, ?base_position: Vector3 | [Numeric, Numeric, Numeric], ?base_orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?use_fixed_base: bool, ?global_scaling: Numeric) -> Integer
     def get_base_position_and_orientation: (Integer body_id) -> [[Float, Float, Float], [Float, Float, Float, Float]]
+    def set_base_position_and_orientation: (Integer body_id, Vector3 | [Numeric, Numeric, Numeric] position, ?Quaternion | [Numeric, Numeric, Numeric, Numeric] orientation) -> nil
+    def get_aabb: (Integer body_id) -> [[Float, Float, Float], [Float, Float, Float]]
     def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> DiscreteDynamicsWorld::ray_hit?
     def ray_test_all: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> Array[DiscreteDynamicsWorld::ray_hit]
+    def ray_test_batch: (Array[[Vector3 | [Numeric, Numeric, Numeric], Vector3 | [Numeric, Numeric, Numeric]]] rays) -> Array[DiscreteDynamicsWorld::ray_hit?]
+    def get_contact_points: (?body_a: Integer?, ?body_b: Integer?) -> Array[contact_point]
+    def change_dynamics: (Integer body_id, ?lateral_friction: Numeric?, ?restitution: Numeric?) -> nil
     def body: (Integer body_id) -> RigidBody
     def collision_shape: (Integer shape_id) -> Shapes::CollisionShape
     def remove_body: (Integer body_id) -> nil
+    def reset_simulation: () -> nil
     def disconnect: () -> nil
   end
 end

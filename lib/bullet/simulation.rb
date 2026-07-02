@@ -86,12 +86,59 @@ module Bullet
       [transform.origin.to_a, transform.rotation.to_a]
     end
 
+    def set_base_position_and_orientation(body_id, position, orientation = Quaternion.identity)
+      body = body_for(body_id)
+      body.world_transform = Transform.new(Quaternion.coerce(orientation), Vector3.coerce(position))
+      nil
+    end
+
+    def get_aabb(body_id)
+      body = body_for(body_id)
+      body.collision_shape.aabb(body.world_transform).map(&:to_a)
+    end
+
     def ray_test(from, to)
       world.ray_test(from, to)
     end
 
     def ray_test_all(from, to)
       world.ray_test_all(from, to)
+    end
+
+    def ray_test_batch(rays)
+      rays.map do |ray|
+        from, to = ray
+        ray_test(from, to)
+      end
+    end
+
+    def get_contact_points(body_a: nil, body_b: nil)
+      contacts = if body_a && body_b
+                   world.contact_pair_test(body_for(body_a), body_for(body_b))
+                 elsif body_a
+                   world.contact_test(body_for(body_a))
+                 elsif body_b
+                   world.contact_test(body_for(body_b))
+                 else
+                   manifold_contacts
+                 end
+
+      contacts.map { |contact| contact_with_body_ids(contact) }
+    end
+
+    def change_dynamics(body_id, lateral_friction: nil, restitution: nil)
+      body = body_for(body_id)
+      body.friction = Float(lateral_friction) unless lateral_friction.nil?
+      body.restitution = Float(restitution) unless restitution.nil?
+      nil
+    end
+
+    def reset_simulation
+      @bodies.compact.each { |body| world.remove_rigid_body(body) }
+      @world = DiscreteDynamicsWorld.create
+      @bodies.clear
+      @shapes.clear
+      nil
     end
 
     def body(body_id)
@@ -119,11 +166,19 @@ module Bullet
     private
 
     def body_for(body_id)
-      @bodies.fetch(Integer(body_id)) || raise(ArgumentError, "unknown body id: #{body_id}")
+      @bodies.fetch(Integer(body_id)) { raise ArgumentError, "unknown body id: #{body_id}" } ||
+        raise(ArgumentError, "unknown body id: #{body_id}")
+    end
+
+    def body_id_for(body)
+      return nil unless body
+
+      @bodies.index(body)
     end
 
     def shape_for(shape_id)
-      @shapes.fetch(Integer(shape_id)) || raise(ArgumentError, "unknown collision shape id: #{shape_id}")
+      @shapes.fetch(Integer(shape_id)) { raise ArgumentError, "unknown collision shape id: #{shape_id}" } ||
+        raise(ArgumentError, "unknown collision shape id: #{shape_id}")
     end
 
     def register_shape(shape)
@@ -135,6 +190,21 @@ module Bullet
       return Vector3.coerce(x) if y.nil? && z.nil?
 
       Vector3.new(x, y, z)
+    end
+
+    def manifold_contacts
+      world.contact_manifolds.flat_map do |manifold|
+        manifold[:points].map do |point|
+          point.merge(body0: manifold[:body0], body1: manifold[:body1])
+        end
+      end
+    end
+
+    def contact_with_body_ids(contact)
+      contact.merge(
+        body0: body_id_for(contact[:body0]),
+        body1: body_id_for(contact[:body1])
+      )
     end
 
     def urdf_link_mass(link)

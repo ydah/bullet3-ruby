@@ -54,4 +54,36 @@ RSpec.describe Bullet::Simulation do
   ensure
     sim&.disconnect
   end
+
+  it "exposes high-level query and dynamics helpers" do
+    sim = described_class.new
+    plane_shape = sim.create_collision_shape(:static_plane, normal: [0, 1, 0], offset: 0)
+    sphere_shape = sim.create_collision_shape(:sphere, radius: 1.0)
+    plane_id = sim.create_rigid_body(mass: 0.0, collision_shape: plane_shape)
+    sphere_id = sim.create_rigid_body(mass: 1.0, collision_shape: sphere_shape, position: [0, 1, 0])
+
+    sim.change_dynamics(sphere_id, lateral_friction: 0.2, restitution: 0.5)
+    sim.step_simulation(time_step: 1.0 / 60.0)
+
+    contacts = sim.get_contact_points(body_a: plane_id, body_b: sphere_id)
+    batch = sim.ray_test_batch([[[0, 5, 0], [0, -5, 0]], [[5, 5, 0], [5, 4, 0]]])
+    aabb = sim.get_aabb(sphere_id)
+
+    expect(sim.body(sphere_id).friction).to be_within(1e-6).of(0.2)
+    expect(sim.body(sphere_id).restitution).to be_within(1e-6).of(0.5)
+    expect(contacts.first.values_at(:body0, :body1)).to contain_exactly(plane_id, sphere_id)
+    expect(batch.first[:body]).to equal(sim.body(sphere_id))
+    expect(batch.last).to be_nil
+    expect(aabb).to eq([[-1.0, 0.0, -1.0], [1.0, 2.0, 1.0]])
+
+    sim.set_base_position_and_orientation(sphere_id, [0, 4, 0])
+    position, = sim.get_base_position_and_orientation(sphere_id)
+    expect(position).to eq([0.0, 4.0, 0.0])
+
+    sim.reset_simulation
+    expect { sim.body(sphere_id) }.to raise_error(ArgumentError)
+    expect(sim.world.num_collision_objects).to eq(0)
+  ensure
+    sim&.disconnect
+  end
 end
