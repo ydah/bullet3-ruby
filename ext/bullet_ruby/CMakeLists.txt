@@ -47,6 +47,7 @@ add_library(bullet_ruby MODULE
   linear_math/rb_quaternion.cpp
   linear_math/rb_transform.cpp
   linear_math/rb_vector3.cpp
+  vehicle/rb_vehicle.cpp
 )
 
 target_include_directories(bullet_ruby PRIVATE

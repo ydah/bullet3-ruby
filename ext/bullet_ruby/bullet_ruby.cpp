@@ -7,6 +7,7 @@ void Init_Matrix3x3(Rice::Module rb_mBullet);
 void Init_Quaternion(Rice::Module rb_mBullet);
 void Init_Transform(Rice::Module rb_mBullet);
 void Init_Vector3(Rice::Module rb_mBullet);
+void Init_Vehicle(Rice::Module rb_mBullet);
 
 extern "C"
 void Init_bullet_ruby()
@@ -19,4 +20,5 @@ void Init_bullet_ruby()
   Init_Shapes(rb_mBullet);
   Init_Dynamics(rb_mBullet);
   Init_Constraints(rb_mBullet);
+  Init_Vehicle(rb_mBullet);
 }

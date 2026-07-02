@@ -6,6 +6,7 @@
 
 #include "../constraints/rb_constraints.hpp"
 #include "../util/type_conversions.hpp"
+#include "../vehicle/rb_vehicle.hpp"
 
 namespace {
 btCollisionShape* coerce_collision_shape(Rice::Object object)
@@ -367,8 +368,10 @@ DiscreteDynamicsWorld::DiscreteDynamicsWorld(CollisionDispatcher& dispatcher,
 
 DiscreteDynamicsWorld::~DiscreteDynamicsWorld()
 {
+  actions_.clear();
   constraints_.clear();
   rigid_bodies_.clear();
+  action_values_.clear();
   constraint_values_.clear();
   collision_object_values_.clear();
 }
@@ -463,6 +466,36 @@ void DiscreteDynamicsWorld::remove_constraint_object(VALUE constraint)
     constraints_.erase(iterator);
   }
   constraint_values_.erase(bullet_constraint);
+}
+
+void DiscreteDynamicsWorld::add_vehicle_object(VALUE vehicle)
+{
+  RaycastVehicle* raycast_vehicle = Rice::detail::From_Ruby<RaycastVehicle*>().convert(vehicle);
+  if (raycast_vehicle == nullptr) {
+    throw std::invalid_argument("expected Bullet::RaycastVehicle");
+  }
+
+  btRaycastVehicle* bullet_vehicle = raycast_vehicle->get();
+  if (actions_.insert(bullet_vehicle).second) {
+    world_->addAction(bullet_vehicle);
+    action_values_[bullet_vehicle] = vehicle;
+  }
+}
+
+void DiscreteDynamicsWorld::remove_vehicle_object(VALUE vehicle)
+{
+  RaycastVehicle* raycast_vehicle = Rice::detail::From_Ruby<RaycastVehicle*>().convert(vehicle);
+  if (raycast_vehicle == nullptr) {
+    throw std::invalid_argument("expected Bullet::RaycastVehicle");
+  }
+
+  btRaycastVehicle* bullet_vehicle = raycast_vehicle->get();
+  auto iterator = actions_.find(bullet_vehicle);
+  if (iterator != actions_.end()) {
+    world_->removeAction(bullet_vehicle);
+    actions_.erase(iterator);
+  }
+  action_values_.erase(bullet_vehicle);
 }
 
 int DiscreteDynamicsWorld::step_simulation(btScalar time_step, int max_sub_steps, btScalar fixed_time_step)
@@ -576,6 +609,9 @@ void DiscreteDynamicsWorld::mark() const
     rb_gc_mark(entry.second);
   }
   for (const auto& entry : constraint_values_) {
+    rb_gc_mark(entry.second);
+  }
+  for (const auto& entry : action_values_) {
     rb_gc_mark(entry.second);
   }
 }
@@ -692,6 +728,10 @@ void Init_Dynamics(Rice::Module rb_mBullet)
       Rice::Arg("disable_collisions_between_linked_bodies") = false)
     .define_method("remove_constraint", &bullet_ruby::DiscreteDynamicsWorld::remove_constraint_object,
       Rice::Arg("constraint").setValue())
+    .define_method("add_vehicle", &bullet_ruby::DiscreteDynamicsWorld::add_vehicle_object,
+      Rice::Arg("vehicle").setValue().keepAlive())
+    .define_method("remove_vehicle", &bullet_ruby::DiscreteDynamicsWorld::remove_vehicle_object,
+      Rice::Arg("vehicle").setValue())
     .define_method("step_simulation", &bullet_ruby::DiscreteDynamicsWorld::step_simulation,
       Rice::Arg("time_step"),
       Rice::Arg("max_sub_steps") = 1,

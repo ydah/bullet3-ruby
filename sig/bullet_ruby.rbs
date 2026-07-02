@@ -233,6 +233,74 @@ module Bullet
     def kinematic?: () -> bool
   end
 
+  class VehicleTuning
+    def initialize: () -> void
+    def suspension_stiffness: () -> Float
+    def suspension_stiffness=: (Numeric value) -> Numeric
+    def suspension_compression: () -> Float
+    def suspension_compression=: (Numeric value) -> Numeric
+    def suspension_damping: () -> Float
+    def suspension_damping=: (Numeric value) -> Numeric
+    def max_suspension_travel_cm: () -> Float
+    def max_suspension_travel_cm=: (Numeric value) -> Numeric
+    def friction_slip: () -> Float
+    def friction_slip=: (Numeric value) -> Numeric
+    def max_suspension_force: () -> Float
+    def max_suspension_force=: (Numeric value) -> Numeric
+  end
+
+  class WheelInfo
+    def index: () -> Integer
+    def front_wheel?: () -> bool
+    def world_transform: () -> Transform
+    def chassis_connection_point: () -> Vector3
+    def wheel_direction: () -> Vector3
+    def wheel_axle: () -> Vector3
+    def suspension_rest_length: () -> Float
+    def radius: () -> Float
+    def suspension_stiffness: () -> Float
+    def suspension_stiffness=: (Numeric value) -> Numeric
+    def damping_compression: () -> Float
+    def damping_compression=: (Numeric value) -> Numeric
+    def damping_relaxation: () -> Float
+    def damping_relaxation=: (Numeric value) -> Numeric
+    def friction_slip: () -> Float
+    def friction_slip=: (Numeric value) -> Numeric
+    def steering: () -> Float
+    def rotation: () -> Float
+    def delta_rotation: () -> Float
+    def roll_influence: () -> Float
+    def roll_influence=: (Numeric value) -> Numeric
+    def engine_force: () -> Float
+    def brake: () -> Float
+    def suspension_force: () -> Float
+    def skid_info: () -> Float
+    def contact?: () -> bool
+    def contact_point: () -> Vector3
+    def contact_normal: () -> Vector3
+  end
+
+  class RaycastVehicle
+    def initialize: (VehicleTuning tuning, DiscreteDynamicsWorld world, RigidBody chassis) -> void
+    def add_wheel: (Vector3 | [Numeric, Numeric, Numeric] connection_point, Vector3 | [Numeric, Numeric, Numeric] wheel_direction, Vector3 | [Numeric, Numeric, Numeric] wheel_axle, Numeric suspension_rest_length, Numeric wheel_radius, VehicleTuning tuning, bool front_wheel) -> WheelInfo
+    def num_wheels: () -> Integer
+    def wheel_info: (Integer index) -> WheelInfo
+    def wheel_transform: (Integer index) -> Transform
+    def update_wheel_transform: (Integer index, ?bool interpolated_transform) -> void
+    def chassis_world_transform: () -> Transform
+    def steering_value: (Integer wheel) -> Float
+    def set_steering_value: (Numeric steering, Integer wheel) -> void
+    def apply_engine_force: (Numeric force, Integer wheel) -> void
+    def set_brake: (Numeric brake, Integer wheel) -> void
+    def reset_suspension: () -> void
+    def current_speed_km_hour: () -> Float
+    def forward_vector: () -> Vector3
+    def pitch_control=: (Numeric pitch) -> void
+    def set_coordinate_system: (Integer right_index, Integer up_index, Integer forward_index) -> void
+    def coordinate_system: () -> Array[Integer]
+    def update_vehicle: (Numeric step) -> void
+  end
+
   module Constraints
     class TypedConstraint
       def constraint_type: () -> Symbol
@@ -446,6 +514,8 @@ module Bullet
     def remove_rigid_body: (RigidBody rigid_body) -> void
     def add_constraint: (Constraints::TypedConstraint constraint, ?bool disable_collisions_between_linked_bodies) -> void
     def remove_constraint: (Constraints::TypedConstraint constraint) -> void
+    def add_vehicle: (RaycastVehicle vehicle) -> void
+    def remove_vehicle: (RaycastVehicle vehicle) -> void
     def step_simulation: (Numeric time_step, ?Integer max_sub_steps, ?Numeric fixed_time_step) -> Integer
     def num_collision_objects: () -> Integer
     def num_constraints: () -> Integer

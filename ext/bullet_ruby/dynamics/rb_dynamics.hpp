@@ -10,6 +10,8 @@
 #include "../linear_math/rb_transform.hpp"
 
 namespace bullet_ruby {
+class RaycastVehicle;
+
 class CollisionConfiguration {
 public:
   CollisionConfiguration();
@@ -137,6 +139,8 @@ public:
   void remove_rigid_body_object(VALUE rigid_body);
   void add_constraint_object(VALUE constraint, bool disable_collisions_between_linked_bodies);
   void remove_constraint_object(VALUE constraint);
+  void add_vehicle_object(VALUE vehicle);
+  void remove_vehicle_object(VALUE vehicle);
   int step_simulation(btScalar time_step, int max_sub_steps, btScalar fixed_time_step);
   int num_collision_objects() const;
   int num_constraints() const;
@@ -158,8 +162,10 @@ private:
   std::unique_ptr<btDiscreteDynamicsWorld> world_;
   std::unordered_set<btRigidBody*> rigid_bodies_;
   std::unordered_set<btTypedConstraint*> constraints_;
+  std::unordered_set<btActionInterface*> actions_;
   std::unordered_map<const btCollisionObject*, VALUE> collision_object_values_;
   std::unordered_map<const btTypedConstraint*, VALUE> constraint_values_;
+  std::unordered_map<const btActionInterface*, VALUE> action_values_;
 };
 } // namespace bullet_ruby
 
