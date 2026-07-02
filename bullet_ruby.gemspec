@@ -37,6 +37,7 @@ Gem::Specification.new do |spec|
   spec.extensions = ["ext/bullet_ruby/extconf.rb"]
 
   spec.add_dependency "rice", "~> 4.0"
+  spec.add_dependency "rexml", "~> 3.4"
   spec.add_development_dependency "rake-compiler", "~> 1.2"
   spec.add_development_dependency "rspec", "~> 3.12"
 

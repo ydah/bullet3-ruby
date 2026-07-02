@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "rexml/document"
+
 module Bullet
   class Simulation
     attr_reader :world
@@ -57,6 +59,28 @@ module Bullet
       @bodies.length - 1
     end
 
+    def load_urdf(filename, base_position: [0, 0, 0], base_orientation: Quaternion.identity, use_fixed_base: false, global_scaling: 1.0)
+      path = Data.find(filename)
+      document = REXML::Document.new(File.read(path))
+      links = REXML::XPath.match(document, "/robot/link")
+      joints = REXML::XPath.match(document, "/robot/joint")
+      raise ArgumentError, "URDF must contain at least one link: #{filename}" if links.empty?
+      raise NotImplementedError, "multi-link URDF loading is not implemented yet" if links.length > 1 || joints.any?
+
+      link = links.first
+      mass = use_fixed_base ? 0.0 : urdf_link_mass(link)
+      shape = urdf_collision_shape(link, Float(global_scaling))
+      shape_id = register_shape(shape)
+      body_id = create_rigid_body(
+        mass: mass,
+        collision_shape: shape_id,
+        position: base_position,
+        orientation: base_orientation
+      )
+      apply_urdf_contact(link, body_for(body_id))
+      body_id
+    end
+
     def get_base_position_and_orientation(body_id)
       transform = body_for(body_id).world_transform
       [transform.origin.to_a, transform.rotation.to_a]
@@ -102,10 +126,95 @@ module Bullet
       @shapes.fetch(Integer(shape_id)) || raise(ArgumentError, "unknown collision shape id: #{shape_id}")
     end
 
+    def register_shape(shape)
+      @shapes << shape
+      @shapes.length - 1
+    end
+
     def vector_argument(x, y, z)
       return Vector3.coerce(x) if y.nil? && z.nil?
 
       Vector3.new(x, y, z)
+    end
+
+    def urdf_link_mass(link)
+      mass_element = REXML::XPath.first(link, "inertial/mass")
+      return 0.0 unless mass_element
+
+      Float(mass_element.attributes["value"])
+    end
+
+    def urdf_collision_shape(link, global_scaling)
+      collisions = REXML::XPath.match(link, "collision")
+      raise ArgumentError, "URDF link has no collision geometry" if collisions.empty?
+
+      shapes_with_origins = collisions.map do |collision|
+        geometry = REXML::XPath.first(collision, "geometry")
+        raise ArgumentError, "URDF collision has no geometry" unless geometry
+
+        [urdf_geometry_shape(geometry, global_scaling), urdf_origin_transform(REXML::XPath.first(collision, "origin"), global_scaling)]
+      end
+
+      return shapes_with_origins.first.first if shapes_with_origins.length == 1 && identity_transform?(shapes_with_origins.first.last)
+
+      compound = Shapes::CompoundShape.new
+      shapes_with_origins.each do |shape, transform|
+        compound.add_child_shape(transform, shape)
+      end
+      compound
+    end
+
+    def urdf_geometry_shape(geometry, global_scaling)
+      if (box = REXML::XPath.first(geometry, "box"))
+        size = float_list(box.attributes["size"]).map { |value| value * global_scaling * 0.5 }
+        return Shapes::BoxShape.new(Vector3.coerce(size))
+      end
+
+      if (sphere = REXML::XPath.first(geometry, "sphere"))
+        return Shapes::SphereShape.new(Float(sphere.attributes["radius"]) * global_scaling)
+      end
+
+      if (cylinder = REXML::XPath.first(geometry, "cylinder"))
+        radius = Float(cylinder.attributes["radius"]) * global_scaling
+        length = Float(cylinder.attributes["length"]) * global_scaling
+        return Shapes::CylinderShape.new(Vector3.new(radius, length * 0.5, radius))
+      end
+
+      if (capsule = REXML::XPath.first(geometry, "capsule"))
+        return Shapes::CapsuleShape.new(
+          Float(capsule.attributes["radius"]) * global_scaling,
+          Float(capsule.attributes["length"]) * global_scaling
+        )
+      end
+
+      mesh = REXML::XPath.first(geometry, "mesh")
+      raise NotImplementedError, "URDF mesh collision geometry is not implemented yet: #{mesh.attributes["filename"]}" if mesh
+
+      raise ArgumentError, "unsupported URDF collision geometry"
+    end
+
+    def urdf_origin_transform(origin, global_scaling)
+      return Transform.identity unless origin
+
+      xyz = float_list(origin.attributes["xyz"] || "0 0 0").map { |value| value * global_scaling }
+      rpy = float_list(origin.attributes["rpy"] || "0 0 0")
+      Transform.new(Quaternion.from_euler(*rpy), Vector3.coerce(xyz))
+    end
+
+    def identity_transform?(transform)
+      transform.origin == Vector3.zero && transform.rotation == Quaternion.identity
+    end
+
+    def apply_urdf_contact(link, body)
+      lateral_friction = REXML::XPath.first(link, "contact/lateral_friction")
+      body.friction = Float(lateral_friction.attributes["value"]) if lateral_friction
+
+      restitution = REXML::XPath.first(link, "contact/restitution")
+      body.restitution = Float(restitution.attributes["value"]) if restitution
+    end
+
+    def float_list(value)
+      value.to_s.split.map { |part| Float(part) }
     end
   end
 end

@@ -301,6 +301,16 @@ module Bullet
     def update_vehicle: (Numeric step) -> void
   end
 
+  module Data
+    DEFAULT_PATH: String
+
+    def self.search_paths: () -> Array[String]
+    def self.add_search_path: (String path) -> String
+    def self.remove_search_path: (String path) -> String?
+    def self.path: (*String parts) -> String
+    def self.find: (String filename) -> String
+  end
+
   module SoftBody
     class SoftBodyWorldInfo
       def initialize: () -> void
@@ -744,6 +754,7 @@ module Bullet
     def step_simulation: (?time_step: Numeric, ?max_sub_steps: Integer, ?fixed_time_step: Numeric) -> Integer
     def create_collision_shape: (Symbol | String type, **untyped options) -> Integer
     def create_rigid_body: (mass: Numeric, collision_shape: Integer, ?position: Vector3 | [Numeric, Numeric, Numeric], ?orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric]) -> Integer
+    def load_urdf: (String filename, ?base_position: Vector3 | [Numeric, Numeric, Numeric], ?base_orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?use_fixed_base: bool, ?global_scaling: Numeric) -> Integer
     def get_base_position_and_orientation: (Integer body_id) -> [[Float, Float, Float], [Float, Float, Float, Float]]
     def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> DiscreteDynamicsWorld::ray_hit?
     def ray_test_all: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> Array[DiscreteDynamicsWorld::ray_hit]

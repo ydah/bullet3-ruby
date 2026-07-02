@@ -37,4 +37,21 @@ RSpec.describe Bullet::Simulation do
   ensure
     sim&.disconnect
   end
+
+  it "loads single-link primitive URDF files from data paths" do
+    sim = described_class.new
+    sim.set_gravity(0, -10, 0)
+
+    plane_id = sim.load_urdf("plane.urdf", use_fixed_base: true)
+    cube_id = sim.load_urdf("cube.urdf", base_position: [0, 3, 0])
+    30.times { sim.step_simulation(time_step: 1.0 / 60.0, fixed_time_step: 1.0 / 60.0) }
+
+    position, = sim.get_base_position_and_orientation(cube_id)
+    expect(sim.body(plane_id)).to be_static
+    expect(sim.body(cube_id).mass).to be_within(1e-6).of(1.0)
+    expect(sim.body(cube_id).friction).to be_within(1e-6).of(1.0)
+    expect(position[1]).to be < 3.0
+  ensure
+    sim&.disconnect
+  end
 end
