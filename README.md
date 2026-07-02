@@ -2,16 +2,16 @@
 
 Ruby bindings for the Bullet Physics SDK.
 
-This project is building a two-layer API:
+This project exposes a two-layer API:
 
 - low-level Bullet C++ bindings exposed under `Bullet`
 - Ruby-friendly helpers and simulation APIs built on top of those bindings
 
-The current implementation establishes the gem/native-extension build
-foundation and the first LinearMath APIs: `Bullet::Vector3`,
-`Bullet::Quaternion`, `Bullet::Matrix3x3`, `Bullet::Transform`, collision
-shapes, rigid bodies, dynamics worlds, constraints, ray/contact queries, and a
-small high-level `Bullet::Simulation` facade.
+The current native extension covers LinearMath, collision shapes,
+`CollisionObject`/`CollisionWorld`, rigid bodies, dynamics worlds, constraints,
+ray/contact/closest-point queries, raycast vehicles, soft bodies, multibodies,
+primitive URDF loading, pybullet-style data paths, and the high-level
+`Bullet::Simulation` facade.
 
 ## Installation
 
@@ -25,6 +25,12 @@ Then install dependencies:
 
 ```bash
 bundle install
+```
+
+Compile the native extension before using the Bullet-backed classes:
+
+```bash
+bundle exec rake compile
 ```
 
 ## Usage
@@ -54,10 +60,54 @@ body = sim.create_rigid_body(mass: 1.0, collision_shape: sphere, position: [0, 1
 
 120.times { sim.step_simulation(time_step: 1.0 / 60.0, fixed_time_step: 1.0 / 60.0) }
 p sim.get_base_position_and_orientation(body)
+puts sim.get_contact_points(body_a: body).inspect
 ```
 
-By default the Ruby implementation is loaded. Set `BULLET_RUBY_USE_NATIVE=1`
-after compiling the extension to load the native `Bullet::Vector3` binding.
+By default the pure Ruby fallback is loaded for non-native classes. Set
+`BULLET_RUBY_USE_NATIVE=1` after compiling the extension to load the native
+Bullet bindings.
+
+Primitive URDF loading and data paths:
+
+```ruby
+sim = Bullet::Simulation.new
+sim.set_gravity(0, 0, -10)
+
+plane = sim.load_urdf("plane.urdf", use_fixed_base: true)
+cube = sim.load_urdf("cube.urdf", base_position: [0, 0, 3])
+
+120.times { sim.step_simulation(time_step: 1.0 / 60.0) }
+p sim.get_aabb(cube)
+p sim.get_contact_points(body_a: plane, body_b: cube)
+```
+
+Lower-level APIs are available for direct Bullet usage:
+
+```ruby
+world = Bullet::CollisionWorld.create
+shape = Bullet::Shapes::SphereShape.new(1.0)
+object = Bullet::CollisionObject.new(shape)
+world.add_collision_object(object)
+
+p world.ray_test([0, 5, 0], [0, -5, 0])
+```
+
+## Implemented Scope
+
+- LinearMath: `Vector3`, `Quaternion`, `Matrix3x3`, `Transform`
+- Collision shapes: primitive, compound, convex hull, triangle mesh,
+  convex triangle mesh, multi-sphere, heightfield
+- Collision world: standalone collision objects, broadphases, ray tests,
+  contact tests, pair tests, closest points
+- Dynamics: rigid bodies, motion states, default/explicit worlds,
+  constraints, contact manifolds, GVL-free stepping
+- Extras: raycast vehicles, soft bodies, multibodies
+- High-level API: direct simulation, primitive body creation, primitive URDF,
+  ray/contact/AABB helpers, base pose, dynamics updates, reset/disconnect
+
+Not yet implemented: full multi-link URDF/SDF/MJCF import, Bullet serializer
+bindings, GUI/shared-memory modes, TinyRenderer camera images, and joint-control
+helpers for imported robots.
 
 ## Development
 
@@ -79,6 +129,14 @@ Compile and test the native extension:
 ```bash
 bundle exec rake compile
 BULLET_RUBY_USE_NATIVE=1 bundle exec rake spec
+```
+
+Run examples:
+
+```bash
+BULLET_RUBY_USE_NATIVE=1 bundle exec ruby examples/hello_world.rb
+BULLET_RUBY_USE_NATIVE=1 bundle exec ruby examples/ray_casting.rb
+BULLET_RUBY_USE_NATIVE=1 bundle exec ruby examples/urdf.rb
 ```
 
 ## Contributing
