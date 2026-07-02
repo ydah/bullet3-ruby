@@ -78,7 +78,7 @@ module Bullet
 
       link = links.first
       mass = use_fixed_base ? 0.0 : urdf_link_mass(link)
-      shape = urdf_collision_shape(link, Float(global_scaling))
+      shape = urdf_collision_shape(link, Float(global_scaling), File.dirname(path))
       shape_id = register_shape(shape)
       body_id = create_rigid_body(
         mass: mass,
@@ -328,7 +328,7 @@ module Bullet
       Float(mass_element.attributes["value"])
     end
 
-    def urdf_collision_shape(link, global_scaling)
+    def urdf_collision_shape(link, global_scaling, base_path)
       collisions = REXML::XPath.match(link, "collision")
       raise ArgumentError, "URDF link has no collision geometry" if collisions.empty?
 
@@ -336,7 +336,7 @@ module Bullet
         geometry = REXML::XPath.first(collision, "geometry")
         raise ArgumentError, "URDF collision has no geometry" unless geometry
 
-        [urdf_geometry_shape(geometry, global_scaling), urdf_origin_transform(REXML::XPath.first(collision, "origin"), global_scaling)]
+        [urdf_geometry_shape(geometry, global_scaling, base_path), urdf_origin_transform(REXML::XPath.first(collision, "origin"), global_scaling)]
       end
 
       return shapes_with_origins.first.first if shapes_with_origins.length == 1 && identity_transform?(shapes_with_origins.first.last)
@@ -348,7 +348,7 @@ module Bullet
       compound
     end
 
-    def urdf_geometry_shape(geometry, global_scaling)
+    def urdf_geometry_shape(geometry, global_scaling, base_path)
       if (box = REXML::XPath.first(geometry, "box"))
         size = float_list(box.attributes["size"]).map { |value| value * global_scaling * 0.5 }
         return Shapes::BoxShape.new(Vector3.coerce(size))
@@ -372,9 +372,71 @@ module Bullet
       end
 
       mesh = REXML::XPath.first(geometry, "mesh")
-      raise NotImplementedError, "URDF mesh collision geometry is not implemented yet: #{mesh.attributes["filename"]}" if mesh
+      if mesh
+        scale = vector_scale(mesh.attributes["scale"], global_scaling)
+        return Shapes::TriangleMeshShape.new(load_obj_triangles(resolve_mesh_filename(mesh.attributes["filename"], base_path), scale))
+      end
 
       raise ArgumentError, "unsupported URDF collision geometry"
+    end
+
+    def resolve_mesh_filename(filename, base_path)
+      normalized = filename.to_s.sub(%r{\Afile://}, "").sub(%r{\Apackage://}, "")
+      candidate = File.expand_path(normalized, base_path)
+      return candidate if File.exist?(candidate)
+
+      Data.find(normalized)
+    end
+
+    def vector_scale(value, global_scaling)
+      parts = value ? float_list(value) : [1.0, 1.0, 1.0]
+      raise ArgumentError, "URDF mesh scale must have 3 components" unless parts.length == 3
+
+      parts.map { |component| component * global_scaling }
+    end
+
+    def load_obj_triangles(path, scale)
+      vertices = []
+      triangles = []
+
+      File.foreach(path) do |line|
+        parts = line.strip.split
+        next if parts.empty? || parts.first.start_with?("#")
+
+        case parts.first
+        when "v"
+          vertices << scaled_vertex(parts, scale)
+        when "f"
+          indices = face_indices(parts.drop(1), vertices.length)
+          (1...(indices.length - 1)).each do |index|
+            triangles << [vertices[indices.first], vertices[indices[index]], vertices[indices[index + 1]]]
+          end
+        end
+      end
+
+      raise ArgumentError, "OBJ mesh has no triangles: #{path}" if triangles.empty?
+
+      triangles
+    end
+
+    def scaled_vertex(parts, scale)
+      raise ArgumentError, "OBJ vertex must have 3 components" if parts.length < 4
+
+      [
+        Float(parts[1]) * scale[0],
+        Float(parts[2]) * scale[1],
+        Float(parts[3]) * scale[2]
+      ]
+    end
+
+    def face_indices(tokens, vertex_count)
+      indices = tokens.map do |token|
+        index = Integer(token.split("/").first)
+        index.negative? ? vertex_count + index : index - 1
+      end
+      raise ArgumentError, "OBJ face must have at least 3 vertices" if indices.length < 3
+
+      indices
     end
 
     def urdf_origin_transform(origin, global_scaling)

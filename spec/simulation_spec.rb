@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "tmpdir"
+
 RSpec.describe Bullet::Simulation do
   before do
     skip "native extension only" unless ENV["BULLET_RUBY_USE_NATIVE"] == "1"
@@ -53,6 +55,47 @@ RSpec.describe Bullet::Simulation do
     expect(position[1]).to be < 3.0
   ensure
     sim&.disconnect
+  end
+
+  it "loads single-link OBJ mesh URDF collision geometry" do
+    Dir.mktmpdir do |dir|
+      File.write(
+        File.join(dir, "tetra.obj"),
+        <<~OBJ
+          v 0 0 0
+          v 1 0 0
+          v 0 1 0
+          v 0 0 1
+          f 1 2 3
+          f 1 2 4
+          f 1 3 4
+          f 2 3 4
+        OBJ
+      )
+      File.write(
+        File.join(dir, "mesh.urdf"),
+        <<~URDF
+          <robot name="mesh">
+            <link name="base">
+              <collision>
+                <geometry>
+                  <mesh filename="tetra.obj" scale="2 2 2"/>
+                </geometry>
+              </collision>
+            </link>
+          </robot>
+        URDF
+      )
+
+      sim = described_class.new
+      body_id = sim.load_urdf(File.join(dir, "mesh.urdf"), use_fixed_base: true)
+
+      expect(sim.body(body_id)).to be_static
+      expect(sim.body(body_id).collision_shape.shape_type).to eq(:triangle_mesh)
+      expect(sim.get_aabb(body_id)).to eq([[0.0, 0.0, 0.0], [2.0, 2.0, 2.0]])
+    ensure
+      sim&.disconnect
+    end
   end
 
   it "exposes high-level query and dynamics helpers" do
