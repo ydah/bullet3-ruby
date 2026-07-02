@@ -274,6 +274,144 @@ module Bullet
     class FixedConstraint < TypedConstraint
       def initialize: (RigidBody rigid_body_a, RigidBody rigid_body_b, Transform frame_a, Transform frame_b) -> void
     end
+
+    class SliderConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_b, Transform frame_b, ?bool use_linear_reference_frame_a) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Transform frame_a, Transform frame_b, ?bool use_linear_reference_frame_a) -> void
+      def frame_a: () -> Transform
+      def frame_b: () -> Transform
+      def set_frames: (Transform frame_a, Transform frame_b) -> void
+      def lower_linear_limit: () -> Float
+      def lower_linear_limit=: (Numeric limit) -> Numeric
+      def upper_linear_limit: () -> Float
+      def upper_linear_limit=: (Numeric limit) -> Numeric
+      def lower_angular_limit: () -> Float
+      def lower_angular_limit=: (Numeric limit) -> Numeric
+      def upper_angular_limit: () -> Float
+      def upper_angular_limit=: (Numeric limit) -> Numeric
+      def linear_position: () -> Float
+      def angular_position: () -> Float
+      def powered_linear_motor?: () -> bool
+      def powered_linear_motor=: (bool enabled) -> bool
+      def target_linear_motor_velocity: () -> Float
+      def target_linear_motor_velocity=: (Numeric velocity) -> Numeric
+      def max_linear_motor_force: () -> Float
+      def max_linear_motor_force=: (Numeric force) -> Numeric
+      def powered_angular_motor?: () -> bool
+      def powered_angular_motor=: (bool enabled) -> bool
+      def target_angular_motor_velocity: () -> Float
+      def target_angular_motor_velocity=: (Numeric velocity) -> Numeric
+      def max_angular_motor_force: () -> Float
+      def max_angular_motor_force=: (Numeric force) -> Numeric
+    end
+
+    class ConeTwistConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, Transform frame_a) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Transform frame_a, Transform frame_b) -> void
+      def set_limit: (Numeric swing_span1, Numeric swing_span2, Numeric twist_span, ?Numeric softness, ?Numeric bias_factor, ?Numeric relaxation_factor) -> void
+      def swing_span1: () -> Float
+      def swing_span2: () -> Float
+      def twist_span: () -> Float
+      def limit_softness: () -> Float
+      def bias_factor: () -> Float
+      def relaxation_factor: () -> Float
+      def twist_angle: () -> Float
+      def angular_only?: () -> bool
+      def angular_only=: (bool angular_only) -> bool
+      def damping: () -> Float
+      def damping=: (Numeric damping) -> Numeric
+      def motor_enabled?: () -> bool
+      def enable_motor: (bool enabled) -> void
+      def max_motor_impulse: () -> Float
+      def max_motor_impulse=: (Numeric impulse) -> Numeric
+      def motor_target: () -> Quaternion
+      def motor_target=: (Quaternion | [Numeric, Numeric, Numeric, Numeric] target) -> Quaternion
+      def frame_a: () -> Transform
+      def frame_b: () -> Transform
+    end
+
+    class Generic6DofConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_b, Transform frame_b, ?bool use_linear_reference_frame_b) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Transform frame_a, Transform frame_b, ?bool use_linear_reference_frame_a) -> void
+      def frame_a: () -> Transform
+      def frame_b: () -> Transform
+      def set_frames: (Transform frame_a, Transform frame_b) -> void
+      def linear_lower_limit: () -> Vector3
+      def linear_lower_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def linear_upper_limit: () -> Vector3
+      def linear_upper_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def angular_lower_limit: () -> Vector3
+      def angular_lower_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def angular_upper_limit: () -> Vector3
+      def angular_upper_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def set_limit: (Integer axis, Numeric low, Numeric high) -> void
+      def limited?: (Integer axis) -> bool
+      def axis: (Integer axis) -> Vector3
+      def angle: (Integer axis) -> Float
+      def relative_pivot_position: (Integer axis) -> Float
+      def use_frame_offset?: () -> bool
+      def use_frame_offset=: (bool enabled) -> bool
+      def use_linear_reference_frame_a?: () -> bool
+      def use_linear_reference_frame_a=: (bool enabled) -> bool
+      def set_axis: (Vector3 | [Numeric, Numeric, Numeric] axis1, Vector3 | [Numeric, Numeric, Numeric] axis2) -> void
+    end
+
+    class Generic6DofSpring2Constraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_b, Transform frame_b, ?Integer rotate_order) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Transform frame_a, Transform frame_b, ?Integer rotate_order) -> void
+      def frame_a: () -> Transform
+      def frame_b: () -> Transform
+      def set_frames: (Transform frame_a, Transform frame_b) -> void
+      def linear_lower_limit: () -> Vector3
+      def linear_lower_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def linear_upper_limit: () -> Vector3
+      def linear_upper_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def angular_lower_limit: () -> Vector3
+      def angular_lower_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def angular_upper_limit: () -> Vector3
+      def angular_upper_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def set_limit: (Integer axis, Numeric low, Numeric high) -> void
+      def limited?: (Integer axis) -> bool
+      def axis: (Integer axis) -> Vector3
+      def angle: (Integer axis) -> Float
+      def relative_pivot_position: (Integer axis) -> Float
+      def rotation_order: () -> Integer
+      def rotation_order=: (Integer rotate_order) -> Integer
+      def set_axis: (Vector3 | [Numeric, Numeric, Numeric] axis1, Vector3 | [Numeric, Numeric, Numeric] axis2) -> void
+      def enable_motor: (Integer axis, bool enabled) -> void
+      def set_servo: (Integer axis, bool enabled) -> void
+      def set_target_velocity: (Integer axis, Numeric velocity) -> void
+      def set_servo_target: (Integer axis, Numeric target) -> void
+      def set_max_motor_force: (Integer axis, Numeric force) -> void
+      def enable_spring: (Integer axis, bool enabled) -> void
+      def set_stiffness: (Integer axis, Numeric stiffness, ?bool limit_if_needed) -> void
+      def set_damping: (Integer axis, Numeric damping, ?bool limit_if_needed) -> void
+      def set_equilibrium_point: () -> void
+      def set_axis_equilibrium_point: (Integer axis) -> void
+      def set_axis_equilibrium_point_value: (Integer axis, Numeric value) -> void
+    end
+
+    class GearConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, RigidBody rigid_body_b, Vector3 | [Numeric, Numeric, Numeric] axis_a, Vector3 | [Numeric, Numeric, Numeric] axis_b, ?Numeric ratio) -> void
+      def axis_a: () -> Vector3
+      def axis_a=: (Vector3 | [Numeric, Numeric, Numeric] axis) -> Vector3
+      def axis_b: () -> Vector3
+      def axis_b=: (Vector3 | [Numeric, Numeric, Numeric] axis) -> Vector3
+      def ratio: () -> Float
+      def ratio=: (Numeric ratio) -> Numeric
+    end
+
+    class Hinge2Constraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, RigidBody rigid_body_b, Vector3 | [Numeric, Numeric, Numeric] anchor, Vector3 | [Numeric, Numeric, Numeric] axis1, Vector3 | [Numeric, Numeric, Numeric] axis2) -> void
+      def anchor: () -> Vector3
+      def anchor2: () -> Vector3
+      def axis1: () -> Vector3
+      def axis2: () -> Vector3
+      def angle1: () -> Float
+      def angle2: () -> Float
+      def set_upper_limit: (Numeric limit) -> void
+      def set_lower_limit: (Numeric limit) -> void
+    end
   end
 
   class DiscreteDynamicsWorld
