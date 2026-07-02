@@ -389,6 +389,126 @@ module Bullet
     end
   end
 
+  module MultiBody
+    class MultiBody
+      def initialize: (Integer link_count, Numeric base_mass, Vector3 | [Numeric, Numeric, Numeric] base_inertia, bool fixed_base, bool can_sleep, ?bool deprecated_multi_dof) -> void
+      def num_links: () -> Integer
+      def num_dofs: () -> Integer
+      def num_pos_vars: () -> Integer
+      def base_mass: () -> Float
+      def base_mass=: (Numeric mass) -> Numeric
+      def base_inertia: () -> Vector3
+      def base_inertia=: (Vector3 | [Numeric, Numeric, Numeric] inertia) -> Vector3
+      def base_position: () -> Vector3
+      def base_position=: (Vector3 | [Numeric, Numeric, Numeric] position) -> Vector3
+      def base_velocity: () -> Vector3
+      def base_velocity=: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> Vector3
+      def base_omega: () -> Vector3
+      def base_omega=: (Vector3 | [Numeric, Numeric, Numeric] omega) -> Vector3
+      def world_to_base_rotation: () -> Quaternion
+      def world_to_base_rotation=: (Quaternion | [Numeric, Numeric, Numeric, Numeric] rotation) -> Quaternion
+      def base_world_transform: () -> Transform
+      def base_world_transform=: (Transform transform) -> Transform
+      def fixed_base?: () -> bool
+      def can_sleep?: () -> bool
+      def can_sleep=: (bool can_sleep) -> bool
+      def awake?: () -> bool
+      def wake_up: () -> void
+      def go_to_sleep: () -> void
+      def linear_damping: () -> Float
+      def linear_damping=: (Numeric damping) -> Numeric
+      def angular_damping: () -> Float
+      def angular_damping=: (Numeric damping) -> Numeric
+      def self_collision?: () -> bool
+      def self_collision=: (bool enabled) -> bool
+      def joint_position: (Integer link) -> Float
+      def set_joint_position: (Integer link, Numeric position) -> Numeric
+      def joint_velocity: (Integer link) -> Float
+      def set_joint_velocity: (Integer link, Numeric velocity) -> Numeric
+      def setup_fixed: (Integer link, Numeric mass, Vector3 | [Numeric, Numeric, Numeric] inertia, Integer parent, Quaternion | [Numeric, Numeric, Numeric, Numeric] parent_to_this_rotation, Vector3 | [Numeric, Numeric, Numeric] parent_pivot, Vector3 | [Numeric, Numeric, Numeric] child_pivot, ?bool disable_parent_collision) -> void
+      def setup_revolute: (Integer link, Numeric mass, Vector3 | [Numeric, Numeric, Numeric] inertia, Integer parent, Quaternion | [Numeric, Numeric, Numeric, Numeric] parent_to_this_rotation, Vector3 | [Numeric, Numeric, Numeric] joint_axis, Vector3 | [Numeric, Numeric, Numeric] parent_pivot, Vector3 | [Numeric, Numeric, Numeric] child_pivot, ?bool disable_parent_collision) -> void
+      def setup_prismatic: (Integer link, Numeric mass, Vector3 | [Numeric, Numeric, Numeric] inertia, Integer parent, Quaternion | [Numeric, Numeric, Numeric, Numeric] parent_to_this_rotation, Vector3 | [Numeric, Numeric, Numeric] joint_axis, Vector3 | [Numeric, Numeric, Numeric] parent_pivot, Vector3 | [Numeric, Numeric, Numeric] child_pivot, ?bool disable_parent_collision) -> void
+      def finalize_multi_dof: () -> void
+      def clear_forces_and_torques: () -> void
+      def clear_velocities: () -> void
+      def add_base_force: (Vector3 | [Numeric, Numeric, Numeric] force) -> void
+      def add_base_torque: (Vector3 | [Numeric, Numeric, Numeric] torque) -> void
+      def add_link_force: (Integer link, Vector3 | [Numeric, Numeric, Numeric] force) -> void
+      def add_link_torque: (Integer link, Vector3 | [Numeric, Numeric, Numeric] torque) -> void
+      def add_joint_torque: (Integer link, Numeric torque) -> void
+      def parent: (Integer link) -> Integer
+      def set_base_collider: (MultiBodyLinkCollider collider) -> void
+      def set_link_collider: (Integer link, MultiBodyLinkCollider collider) -> void
+    end
+
+    class MultiBodyLinkCollider
+      def initialize: (MultiBody multi_body, Integer link) -> void
+      def link: () -> Integer
+      def world_transform: () -> Transform
+      def world_transform=: (Transform transform) -> Transform
+      def collision_shape: () -> Shapes::CollisionShape
+      def collision_shape=: (Shapes::CollisionShape collision_shape) -> void
+      def collision_flags: () -> Integer
+      def collision_flags=: (Integer flags) -> Integer
+      def kinematic?: () -> bool
+      def static_or_kinematic?: () -> bool
+    end
+
+    class MultiBodyConstraint
+      def constraint_type: () -> Symbol
+      def num_rows: () -> Integer
+      def max_applied_impulse: () -> Float
+      def max_applied_impulse=: (Numeric impulse) -> Numeric
+      def applied_impulse: (Integer row) -> Float
+      def position: (Integer row) -> Float
+    end
+
+    class MultiBodyJointMotor < MultiBodyConstraint
+      def initialize: (MultiBody multi_body, Integer link, Numeric desired_velocity, Numeric max_motor_impulse) -> void
+                    | (MultiBody multi_body, Integer link, Integer link_dof, Numeric desired_velocity, Numeric max_motor_impulse) -> void
+      def set_velocity_target: (Numeric velocity, ?Numeric kd) -> void
+      def set_position_target: (Numeric position, ?Numeric kp) -> void
+      def erp: () -> Float
+      def erp=: (Numeric erp) -> Numeric
+      def rhs_clamp=: (Numeric clamp) -> void
+    end
+
+    class MultiBodyJointLimitConstraint < MultiBodyConstraint
+      def initialize: (MultiBody multi_body, Integer link, Numeric lower, Numeric upper) -> void
+      def lower_bound: () -> Float
+      def lower_bound=: (Numeric lower) -> Numeric
+      def upper_bound: () -> Float
+      def upper_bound=: (Numeric upper) -> Numeric
+    end
+
+    class MultiBodyPoint2Point < MultiBodyConstraint
+      def initialize: (MultiBody multi_body, Integer link, RigidBody rigid_body, Vector3 | [Numeric, Numeric, Numeric] pivot_in_a, Vector3 | [Numeric, Numeric, Numeric] pivot_in_b) -> void
+                    | (MultiBody multi_body_a, Integer link_a, MultiBody multi_body_b, Integer link_b, Vector3 | [Numeric, Numeric, Numeric] pivot_in_a, Vector3 | [Numeric, Numeric, Numeric] pivot_in_b) -> void
+      def pivot_in_b: () -> Vector3
+      def pivot_in_b=: (Vector3 | [Numeric, Numeric, Numeric] pivot) -> Vector3
+    end
+
+    class MultiBodyDynamicsWorld
+      def self.create: () -> MultiBodyDynamicsWorld
+      def initialize: () -> void
+      def gravity: () -> Vector3
+      def gravity=: (Vector3 | [Numeric, Numeric, Numeric] gravity) -> Vector3
+      def add_multi_body: (MultiBody multi_body, ?Integer group, ?Integer mask) -> void
+      def remove_multi_body: (MultiBody multi_body) -> void
+      def add_constraint: (MultiBodyConstraint constraint) -> void
+      def remove_constraint: (MultiBodyConstraint constraint) -> void
+      def add_link_collider: (MultiBodyLinkCollider collider, ?Integer group, ?Integer mask) -> void
+      def remove_link_collider: (MultiBodyLinkCollider collider) -> void
+      def step_simulation: (Numeric time_step, ?Integer max_sub_steps, ?Numeric fixed_time_step) -> Integer
+      def num_multi_bodies: () -> Integer
+      def num_multi_body_constraints: () -> Integer
+      def num_collision_objects: () -> Integer
+      def forward_kinematics: () -> void
+      def clear_forces: () -> void
+      def clear_multi_body_forces: () -> void
+    end
+  end
+
   module Constraints
     class TypedConstraint
       def constraint_type: () -> Symbol

@@ -47,6 +47,7 @@ add_library(bullet_ruby MODULE
   linear_math/rb_quaternion.cpp
   linear_math/rb_transform.cpp
   linear_math/rb_vector3.cpp
+  multi_body/rb_multi_body.cpp
   soft_body/rb_soft_body.cpp
   vehicle/rb_vehicle.cpp
 )
