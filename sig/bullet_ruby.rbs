@@ -183,6 +183,10 @@ module Bullet
     def initialize: () -> void
   end
 
+  class AxisSweep3
+    def initialize: (Vector3 | [Numeric, Numeric, Numeric] world_aabb_min, Vector3 | [Numeric, Numeric, Numeric] world_aabb_max, ?Integer max_handles) -> void
+  end
+
   class SequentialImpulseConstraintSolver
     def initialize: () -> void
   end
@@ -231,6 +235,23 @@ module Bullet
     def active?: () -> bool
     def static?: () -> bool
     def kinematic?: () -> bool
+  end
+
+  class CollisionObject
+    def initialize: (?Shapes::CollisionShape collision_shape) -> void
+    def world_transform: () -> Transform
+    def world_transform=: (Transform transform) -> Transform
+    def collision_shape: () -> Shapes::CollisionShape?
+    def collision_shape=: (Shapes::CollisionShape collision_shape) -> void
+    def friction: () -> Float
+    def friction=: (Numeric friction) -> Numeric
+    def restitution: () -> Float
+    def restitution=: (Numeric restitution) -> Numeric
+    def collision_flags: () -> Integer
+    def collision_flags=: (Integer flags) -> Integer
+    def active?: () -> bool
+    def activate: () -> void
+    def aabb: () -> [Vector3, Vector3]
   end
 
   class VehicleTuning
@@ -698,6 +719,29 @@ module Bullet
       def set_upper_limit: (Numeric limit) -> void
       def set_lower_limit: (Numeric limit) -> void
     end
+  end
+
+  class CollisionWorld
+    type ray_hit = {
+      body: CollisionObject?,
+      fraction: Float,
+      point: Vector3,
+      normal: Vector3
+    }
+
+    def self.create: () -> CollisionWorld
+
+    def initialize: () -> void
+                  | (CollisionDispatcher dispatcher, DbvtBroadphase broadphase, CollisionConfiguration configuration) -> void
+                  | (CollisionDispatcher dispatcher, AxisSweep3 broadphase, CollisionConfiguration configuration) -> void
+    def add_collision_object: (CollisionObject collision_object, ?Integer group, ?Integer mask) -> void
+    def remove_collision_object: (CollisionObject collision_object) -> void
+    def num_collision_objects: () -> Integer
+    def update_aabbs: () -> void
+    def compute_overlapping_pairs: () -> void
+    def ray_test_closest: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
+    def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
+    def ray_test_all: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> Array[ray_hit]
   end
 
   class DiscreteDynamicsWorld

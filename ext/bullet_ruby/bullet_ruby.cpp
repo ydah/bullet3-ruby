@@ -1,6 +1,7 @@
 #include <rice/rice.hpp>
 
 void Init_Shapes(Rice::Module rb_mBullet);
+void Init_Collision(Rice::Module rb_mBullet);
 void Init_SoftBody(Rice::Module rb_mBullet);
 void Init_Constraints(Rice::Module rb_mBullet);
 void Init_Dynamics(Rice::Module rb_mBullet);
@@ -21,6 +22,7 @@ void Init_bullet_ruby()
   Init_Transform(rb_mBullet);
   Init_Shapes(rb_mBullet);
   Init_Dynamics(rb_mBullet);
+  Init_Collision(rb_mBullet);
   Init_Constraints(rb_mBullet);
   Init_Vehicle(rb_mBullet);
   Init_SoftBody(rb_mBullet);
