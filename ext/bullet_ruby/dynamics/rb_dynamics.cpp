@@ -683,6 +683,27 @@ Rice::Array DiscreteDynamicsWorld::contact_manifolds() const
   return manifolds;
 }
 
+void DiscreteDynamicsWorld::set_debug_drawer(VALUE debug_drawer)
+{
+  DebugDraw* drawer = Rice::detail::From_Ruby<DebugDraw*>().convert(debug_drawer);
+  if (drawer == nullptr) {
+    throw std::invalid_argument("expected Bullet::DebugDraw");
+  }
+
+  debug_drawer_value_ = debug_drawer;
+  world_->setDebugDrawer(drawer->get());
+}
+
+VALUE DiscreteDynamicsWorld::debug_drawer() const
+{
+  return debug_drawer_value_;
+}
+
+void DiscreteDynamicsWorld::debug_draw_world()
+{
+  world_->debugDrawWorld();
+}
+
 void DiscreteDynamicsWorld::mark() const
 {
   for (const auto& entry : collision_object_values_) {
@@ -694,6 +715,7 @@ void DiscreteDynamicsWorld::mark() const
   for (const auto& entry : action_values_) {
     rb_gc_mark(entry.second);
   }
+  rb_gc_mark(debug_drawer_value_);
 }
 } // namespace bullet_ruby
 
@@ -832,5 +854,9 @@ void Init_Dynamics(Rice::Module rb_mBullet)
       Rice::Arg("rigid_body_a").setValue(),
       Rice::Arg("rigid_body_b").setValue(),
       Rice::Arg("distance_threshold") = btScalar(0.0))
-    .define_method("contact_manifolds", &bullet_ruby::DiscreteDynamicsWorld::contact_manifolds);
+    .define_method("contact_manifolds", &bullet_ruby::DiscreteDynamicsWorld::contact_manifolds)
+    .define_method("debug_drawer", &bullet_ruby::DiscreteDynamicsWorld::debug_drawer)
+    .define_method("debug_drawer=", &bullet_ruby::DiscreteDynamicsWorld::set_debug_drawer,
+      Rice::Arg("debug_drawer").setValue().keepAlive())
+    .define_method("debug_draw_world", &bullet_ruby::DiscreteDynamicsWorld::debug_draw_world);
 }

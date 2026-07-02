@@ -8,6 +8,7 @@
 #include <rice/rice.hpp>
 
 #include "../linear_math/rb_transform.hpp"
+#include "../util/rb_debug_draw.hpp"
 
 namespace bullet_ruby {
 class RaycastVehicle;
@@ -152,6 +153,9 @@ public:
   Rice::Array contact_pair_test(VALUE rigid_body_a, VALUE rigid_body_b) const;
   Rice::Array closest_points(VALUE rigid_body_a, VALUE rigid_body_b, btScalar distance_threshold) const;
   Rice::Array contact_manifolds() const;
+  void set_debug_drawer(VALUE debug_drawer);
+  VALUE debug_drawer() const;
+  void debug_draw_world();
   void mark() const;
 
 private:
@@ -169,6 +173,7 @@ private:
   std::unordered_map<const btCollisionObject*, VALUE> collision_object_values_;
   std::unordered_map<const btTypedConstraint*, VALUE> constraint_values_;
   std::unordered_map<const btActionInterface*, VALUE> action_values_;
+  VALUE debug_drawer_value_ = Qnil;
 };
 } // namespace bullet_ruby
 

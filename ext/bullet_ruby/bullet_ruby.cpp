@@ -5,6 +5,8 @@ void Init_Collision(Rice::Module rb_mBullet);
 void Init_SoftBody(Rice::Module rb_mBullet);
 void Init_Constraints(Rice::Module rb_mBullet);
 void Init_Dynamics(Rice::Module rb_mBullet);
+void Init_DebugDraw(Rice::Module rb_mBullet);
+void Init_IO(Rice::Module rb_mBullet);
 void Init_Matrix3x3(Rice::Module rb_mBullet);
 void Init_MultiBody(Rice::Module rb_mBullet);
 void Init_Quaternion(Rice::Module rb_mBullet);
@@ -24,6 +26,8 @@ void Init_bullet_ruby()
   Init_Dynamics(rb_mBullet);
   Init_Collision(rb_mBullet);
   Init_Constraints(rb_mBullet);
+  Init_DebugDraw(rb_mBullet);
+  Init_IO(rb_mBullet);
   Init_Vehicle(rb_mBullet);
   Init_SoftBody(rb_mBullet);
   Init_MultiBody(rb_mBullet);

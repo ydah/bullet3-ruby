@@ -44,17 +44,27 @@ add_library(bullet_ruby MODULE
   collision/shapes/rb_collision_shape.cpp
   constraints/rb_constraints.cpp
   dynamics/rb_dynamics.cpp
+  io/rb_io.cpp
   linear_math/rb_matrix3x3.cpp
   linear_math/rb_quaternion.cpp
   linear_math/rb_transform.cpp
   linear_math/rb_vector3.cpp
   multi_body/rb_multi_body.cpp
   soft_body/rb_soft_body.cpp
+  util/rb_debug_draw.cpp
   vehicle/rb_vehicle.cpp
+  "${BULLET3_SOURCE_DIR}/Extras/Serialize/BulletFileLoader/bChunk.cpp"
+  "${BULLET3_SOURCE_DIR}/Extras/Serialize/BulletFileLoader/bDNA.cpp"
+  "${BULLET3_SOURCE_DIR}/Extras/Serialize/BulletFileLoader/bFile.cpp"
+  "${BULLET3_SOURCE_DIR}/Extras/Serialize/BulletFileLoader/btBulletFile.cpp"
+  "${BULLET3_SOURCE_DIR}/Extras/Serialize/BulletWorldImporter/btBulletWorldImporter.cpp"
+  "${BULLET3_SOURCE_DIR}/Extras/Serialize/BulletWorldImporter/btWorldImporter.cpp"
 )
 
 target_include_directories(bullet_ruby PRIVATE
   "${BULLET3_SOURCE_DIR}/src"
+  "${BULLET3_SOURCE_DIR}/Extras/Serialize/BulletFileLoader"
+  "${BULLET3_SOURCE_DIR}/Extras/Serialize/BulletWorldImporter"
 )
 
 target_include_directories(bullet_ruby SYSTEM PRIVATE
