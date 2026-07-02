@@ -66,6 +66,9 @@ public:
   void compute_overlapping_pairs();
   Rice::Object ray_test_closest(Rice::Object from, Rice::Object to) const;
   Rice::Array ray_test_all(Rice::Object from, Rice::Object to) const;
+  Rice::Array contact_test(VALUE collision_object) const;
+  Rice::Array contact_pair_test(VALUE collision_object_a, VALUE collision_object_b) const;
+  Rice::Array closest_points(VALUE collision_object_a, VALUE collision_object_b, btScalar distance_threshold) const;
   void mark() const;
 
 private:

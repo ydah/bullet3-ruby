@@ -148,6 +148,9 @@ public:
   void synchronize_motion_states();
   Rice::Object ray_test_closest(Rice::Object from, Rice::Object to) const;
   Rice::Array ray_test_all(Rice::Object from, Rice::Object to) const;
+  Rice::Array contact_test(VALUE rigid_body) const;
+  Rice::Array contact_pair_test(VALUE rigid_body_a, VALUE rigid_body_b) const;
+  Rice::Array closest_points(VALUE rigid_body_a, VALUE rigid_body_b, btScalar distance_threshold) const;
   Rice::Array contact_manifolds() const;
   void mark() const;
 

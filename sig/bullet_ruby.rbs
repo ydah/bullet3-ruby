@@ -729,6 +729,19 @@ module Bullet
       normal: Vector3
     }
 
+    type contact_hit = {
+      body0: CollisionObject?,
+      body1: CollisionObject?,
+      position_world_on_a: Vector3,
+      position_world_on_b: Vector3,
+      normal_world_on_b: Vector3,
+      distance: Float,
+      part_id0: Integer,
+      index0: Integer,
+      part_id1: Integer,
+      index1: Integer
+    }
+
     def self.create: () -> CollisionWorld
 
     def initialize: () -> void
@@ -742,6 +755,9 @@ module Bullet
     def ray_test_closest: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
     def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
     def ray_test_all: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> Array[ray_hit]
+    def contact_test: (CollisionObject collision_object) -> Array[contact_hit]
+    def contact_pair_test: (CollisionObject collision_object_a, CollisionObject collision_object_b) -> Array[contact_hit]
+    def closest_points: (CollisionObject collision_object_a, CollisionObject collision_object_b, ?Numeric distance_threshold) -> Array[contact_hit]
   end
 
   class DiscreteDynamicsWorld
@@ -750,6 +766,19 @@ module Bullet
       fraction: Float,
       point: Vector3,
       normal: Vector3
+    }
+
+    type contact_hit = {
+      body0: RigidBody?,
+      body1: RigidBody?,
+      position_world_on_a: Vector3,
+      position_world_on_b: Vector3,
+      normal_world_on_b: Vector3,
+      distance: Float,
+      part_id0: Integer,
+      index0: Integer,
+      part_id1: Integer,
+      index1: Integer
     }
 
     type contact_point = {
@@ -786,6 +815,9 @@ module Bullet
     def ray_test_closest: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
     def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
     def ray_test_all: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> Array[ray_hit]
+    def contact_test: (RigidBody rigid_body) -> Array[contact_hit]
+    def contact_pair_test: (RigidBody rigid_body_a, RigidBody rigid_body_b) -> Array[contact_hit]
+    def closest_points: (RigidBody rigid_body_a, RigidBody rigid_body_b, ?Numeric distance_threshold) -> Array[contact_hit]
     def contact_manifolds: () -> Array[contact_manifold]
   end
 

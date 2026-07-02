@@ -1,6 +1,8 @@
 #include "rb_collision.hpp"
 
+#include <functional>
 #include <stdexcept>
+#include <utility>
 
 #include "../dynamics/rb_dynamics.hpp"
 #include "../util/type_conversions.hpp"
@@ -36,6 +38,42 @@ Rice::Array aabb_array(const btVector3& aabb_min, const btVector3& aabb_max)
   array.push(Rice::Object(Rice::detail::To_Ruby<btVector3>().convert(btVector3(aabb_max))));
   return array;
 }
+
+class ContactCollector : public btCollisionWorld::ContactResultCallback {
+public:
+  explicit ContactCollector(std::function<VALUE(const btCollisionObject*)> ruby_object_for)
+    : ruby_object_for_(std::move(ruby_object_for))
+  {
+  }
+
+  btScalar addSingleResult(btManifoldPoint& contact_point,
+                           const btCollisionObjectWrapper* object0,
+                           int part_id0,
+                           int index0,
+                           const btCollisionObjectWrapper* object1,
+                           int part_id1,
+                           int index1) override
+  {
+    Rice::Hash contact;
+    contact[Rice::Symbol("body0")] = Rice::Object(ruby_object_for_(object0->getCollisionObject()));
+    contact[Rice::Symbol("body1")] = Rice::Object(ruby_object_for_(object1->getCollisionObject()));
+    set_vector_hash_value(contact, "position_world_on_a", contact_point.getPositionWorldOnA());
+    set_vector_hash_value(contact, "position_world_on_b", contact_point.getPositionWorldOnB());
+    set_vector_hash_value(contact, "normal_world_on_b", contact_point.m_normalWorldOnB);
+    contact[Rice::Symbol("distance")] = contact_point.getDistance();
+    contact[Rice::Symbol("part_id0")] = part_id0;
+    contact[Rice::Symbol("index0")] = index0;
+    contact[Rice::Symbol("part_id1")] = part_id1;
+    contact[Rice::Symbol("index1")] = index1;
+    contacts.push(contact);
+    return btScalar(0);
+  }
+
+  Rice::Array contacts;
+
+private:
+  std::function<VALUE(const btCollisionObject*)> ruby_object_for_;
+};
 } // namespace
 
 namespace bullet_ruby {
@@ -269,6 +307,39 @@ Rice::Array CollisionWorld::ray_test_all(Rice::Object from, Rice::Object to) con
   return hits;
 }
 
+Rice::Array CollisionWorld::contact_test(VALUE collision_object) const
+{
+  CollisionObject* object = collision_object_from_value(collision_object);
+  ContactCollector callback([this](const btCollisionObject* bullet_object) {
+    return ruby_object_for(bullet_object);
+  });
+  world_->contactTest(object->get(), callback);
+  return callback.contacts;
+}
+
+Rice::Array CollisionWorld::contact_pair_test(VALUE collision_object_a, VALUE collision_object_b) const
+{
+  CollisionObject* object_a = collision_object_from_value(collision_object_a);
+  CollisionObject* object_b = collision_object_from_value(collision_object_b);
+  ContactCollector callback([this](const btCollisionObject* bullet_object) {
+    return ruby_object_for(bullet_object);
+  });
+  world_->contactPairTest(object_a->get(), object_b->get(), callback);
+  return callback.contacts;
+}
+
+Rice::Array CollisionWorld::closest_points(VALUE collision_object_a, VALUE collision_object_b, btScalar distance_threshold) const
+{
+  CollisionObject* object_a = collision_object_from_value(collision_object_a);
+  CollisionObject* object_b = collision_object_from_value(collision_object_b);
+  ContactCollector callback([this](const btCollisionObject* bullet_object) {
+    return ruby_object_for(bullet_object);
+  });
+  callback.m_closestDistanceThreshold = distance_threshold;
+  world_->contactPairTest(object_a->get(), object_b->get(), callback);
+  return callback.contacts;
+}
+
 void CollisionWorld::mark() const
 {
   for (const auto& entry : collision_object_values_) {
@@ -344,5 +415,14 @@ void Init_Collision(Rice::Module rb_mBullet)
     .define_method("compute_overlapping_pairs", &bullet_ruby::CollisionWorld::compute_overlapping_pairs)
     .define_method("ray_test_closest", &bullet_ruby::CollisionWorld::ray_test_closest)
     .define_method("ray_test", &bullet_ruby::CollisionWorld::ray_test_closest)
-    .define_method("ray_test_all", &bullet_ruby::CollisionWorld::ray_test_all);
+    .define_method("ray_test_all", &bullet_ruby::CollisionWorld::ray_test_all)
+    .define_method("contact_test", &bullet_ruby::CollisionWorld::contact_test,
+      Rice::Arg("collision_object").setValue())
+    .define_method("contact_pair_test", &bullet_ruby::CollisionWorld::contact_pair_test,
+      Rice::Arg("collision_object_a").setValue(),
+      Rice::Arg("collision_object_b").setValue())
+    .define_method("closest_points", &bullet_ruby::CollisionWorld::closest_points,
+      Rice::Arg("collision_object_a").setValue(),
+      Rice::Arg("collision_object_b").setValue(),
+      Rice::Arg("distance_threshold") = btScalar(0.0));
 }

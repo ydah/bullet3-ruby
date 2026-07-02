@@ -60,4 +60,25 @@ RSpec.describe "Bullet::CollisionWorld" do
     expect(dbvt_world.num_collision_objects).to eq(0)
     expect(axis_world.num_collision_objects).to eq(0)
   end
+
+  it "reports contact pairs and closest points" do
+    world = Bullet::CollisionWorld.create
+    object_a = Bullet::CollisionObject.new(Bullet::Shapes::SphereShape.new(1.0))
+    object_b = Bullet::CollisionObject.new(Bullet::Shapes::SphereShape.new(1.0))
+    object_a.world_transform = Bullet::Transform.new(Bullet::Quaternion.identity, [0, 0, 0])
+    object_b.world_transform = Bullet::Transform.new(Bullet::Quaternion.identity, [0, 1.5, 0])
+
+    world.add_collision_object(object_a)
+    world.add_collision_object(object_b)
+
+    contacts = world.contact_pair_test(object_a, object_b)
+    closest = world.closest_points(object_a, object_b)
+    object_contacts = world.contact_test(object_a)
+
+    expect(contacts).not_to be_empty
+    expect(contacts.first.values_at(:body0, :body1)).to include(object_a, object_b)
+    expect(contacts.first[:distance]).to be <= 0.0
+    expect(closest.first.values_at(:body0, :body1)).to include(object_a, object_b)
+    expect(object_contacts.any? { |contact| contact.values_at(:body0, :body1).include?(object_b) }).to be(true)
+  end
 end

@@ -1,6 +1,8 @@
 #include "rb_dynamics.hpp"
 
+#include <functional>
 #include <stdexcept>
+#include <utility>
 
 #include <ruby/thread.h>
 
@@ -47,6 +49,51 @@ void set_vector_hash_value(Rice::Hash& hash, const char* key, const btVector3& v
 {
   hash[Rice::Symbol(key)] = Rice::Object(Rice::detail::To_Ruby<btVector3>().convert(btVector3(value)));
 }
+
+bullet_ruby::RigidBody* rigid_body_from_value(VALUE value)
+{
+  bullet_ruby::RigidBody* body = Rice::detail::From_Ruby<bullet_ruby::RigidBody*>().convert(value);
+  if (body == nullptr) {
+    throw std::invalid_argument("expected Bullet::RigidBody");
+  }
+  return body;
+}
+
+class ContactCollector : public btCollisionWorld::ContactResultCallback {
+public:
+  explicit ContactCollector(std::function<VALUE(const btCollisionObject*)> ruby_object_for)
+    : ruby_object_for_(std::move(ruby_object_for))
+  {
+  }
+
+  btScalar addSingleResult(btManifoldPoint& contact_point,
+                           const btCollisionObjectWrapper* object0,
+                           int part_id0,
+                           int index0,
+                           const btCollisionObjectWrapper* object1,
+                           int part_id1,
+                           int index1) override
+  {
+    Rice::Hash contact;
+    contact[Rice::Symbol("body0")] = Rice::Object(ruby_object_for_(object0->getCollisionObject()));
+    contact[Rice::Symbol("body1")] = Rice::Object(ruby_object_for_(object1->getCollisionObject()));
+    set_vector_hash_value(contact, "position_world_on_a", contact_point.getPositionWorldOnA());
+    set_vector_hash_value(contact, "position_world_on_b", contact_point.getPositionWorldOnB());
+    set_vector_hash_value(contact, "normal_world_on_b", contact_point.m_normalWorldOnB);
+    contact[Rice::Symbol("distance")] = contact_point.getDistance();
+    contact[Rice::Symbol("part_id0")] = part_id0;
+    contact[Rice::Symbol("index0")] = index0;
+    contact[Rice::Symbol("part_id1")] = part_id1;
+    contact[Rice::Symbol("index1")] = index1;
+    contacts.push(contact);
+    return btScalar(0);
+  }
+
+  Rice::Array contacts;
+
+private:
+  std::function<VALUE(const btCollisionObject*)> ruby_object_for_;
+};
 } // namespace
 
 namespace bullet_ruby {
@@ -572,6 +619,39 @@ Rice::Array DiscreteDynamicsWorld::ray_test_all(Rice::Object from, Rice::Object 
   return hits;
 }
 
+Rice::Array DiscreteDynamicsWorld::contact_test(VALUE rigid_body) const
+{
+  RigidBody* body = rigid_body_from_value(rigid_body);
+  ContactCollector callback([this](const btCollisionObject* collision_object) {
+    return ruby_object_for(collision_object);
+  });
+  world_->contactTest(body->get(), callback);
+  return callback.contacts;
+}
+
+Rice::Array DiscreteDynamicsWorld::contact_pair_test(VALUE rigid_body_a, VALUE rigid_body_b) const
+{
+  RigidBody* body_a = rigid_body_from_value(rigid_body_a);
+  RigidBody* body_b = rigid_body_from_value(rigid_body_b);
+  ContactCollector callback([this](const btCollisionObject* collision_object) {
+    return ruby_object_for(collision_object);
+  });
+  world_->contactPairTest(body_a->get(), body_b->get(), callback);
+  return callback.contacts;
+}
+
+Rice::Array DiscreteDynamicsWorld::closest_points(VALUE rigid_body_a, VALUE rigid_body_b, btScalar distance_threshold) const
+{
+  RigidBody* body_a = rigid_body_from_value(rigid_body_a);
+  RigidBody* body_b = rigid_body_from_value(rigid_body_b);
+  ContactCollector callback([this](const btCollisionObject* collision_object) {
+    return ruby_object_for(collision_object);
+  });
+  callback.m_closestDistanceThreshold = distance_threshold;
+  world_->contactPairTest(body_a->get(), body_b->get(), callback);
+  return callback.contacts;
+}
+
 Rice::Array DiscreteDynamicsWorld::contact_manifolds() const
 {
   Rice::Array manifolds;
@@ -743,5 +823,14 @@ void Init_Dynamics(Rice::Module rb_mBullet)
     .define_method("ray_test_closest", &bullet_ruby::DiscreteDynamicsWorld::ray_test_closest)
     .define_method("ray_test", &bullet_ruby::DiscreteDynamicsWorld::ray_test_closest)
     .define_method("ray_test_all", &bullet_ruby::DiscreteDynamicsWorld::ray_test_all)
+    .define_method("contact_test", &bullet_ruby::DiscreteDynamicsWorld::contact_test,
+      Rice::Arg("rigid_body").setValue())
+    .define_method("contact_pair_test", &bullet_ruby::DiscreteDynamicsWorld::contact_pair_test,
+      Rice::Arg("rigid_body_a").setValue(),
+      Rice::Arg("rigid_body_b").setValue())
+    .define_method("closest_points", &bullet_ruby::DiscreteDynamicsWorld::closest_points,
+      Rice::Arg("rigid_body_a").setValue(),
+      Rice::Arg("rigid_body_b").setValue(),
+      Rice::Arg("distance_threshold") = btScalar(0.0))
     .define_method("contact_manifolds", &bullet_ruby::DiscreteDynamicsWorld::contact_manifolds);
 }

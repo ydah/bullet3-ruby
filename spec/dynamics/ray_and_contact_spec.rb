@@ -61,5 +61,14 @@ RSpec.describe "Bullet ray and contact queries" do
     expect([manifold[:body0], manifold[:body1]]).to include(ground, sphere)
     expect(manifold[:points]).not_to be_empty
     expect(manifold[:points].first[:distance]).to be <= 0.05
+
+    contacts = world.contact_pair_test(ground, sphere)
+    sphere_contacts = world.contact_test(sphere)
+    closest = world.closest_points(ground, sphere)
+
+    expect(contacts).not_to be_empty
+    expect(contacts.first.values_at(:body0, :body1)).to include(ground, sphere)
+    expect(sphere_contacts.any? { |contact| contact.values_at(:body0, :body1).include?(ground) }).to be(true)
+    expect(closest.first[:distance]).to be <= 0.05
   end
 end
