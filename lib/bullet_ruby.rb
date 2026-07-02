@@ -17,10 +17,12 @@ require_relative "bullet/collision"
 require_relative "bullet/dynamics"
 require_relative "bullet/constraints"
 require_relative "bullet/data"
+require_relative "bullet/debug_draw"
 require_relative "bullet/vehicle"
 require_relative "bullet/soft_body"
 require_relative "bullet/multi_body"
 require_relative "bullet/simulation"
+require_relative "bullet/io"
 
 module BulletRuby
   VERSION = Bullet::VERSION unless const_defined?(:VERSION, false)

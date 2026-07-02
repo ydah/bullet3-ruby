@@ -819,6 +819,98 @@ module Bullet
     def contact_pair_test: (RigidBody rigid_body_a, RigidBody rigid_body_b) -> Array[contact_hit]
     def closest_points: (RigidBody rigid_body_a, RigidBody rigid_body_b, ?Numeric distance_threshold) -> Array[contact_hit]
     def contact_manifolds: () -> Array[contact_manifold]
+    def debug_drawer: () -> DebugDraw?
+    def debug_drawer=: (DebugDraw debug_drawer) -> void
+    def debug_draw_world: () -> void
+  end
+
+  class DebugDraw
+    NO_DEBUG: Integer
+    DRAW_WIREFRAME: Integer
+    DRAW_AABB: Integer
+    DRAW_CONTACT_POINTS: Integer
+    DRAW_CONSTRAINTS: Integer
+    DRAW_CONSTRAINT_LIMITS: Integer
+    DRAW_FRAMES: Integer
+
+    type line = {
+      from: [Float, Float, Float],
+      to: [Float, Float, Float],
+      color: [Float, Float, Float]
+    }
+
+    type contact_point = {
+      point: [Float, Float, Float],
+      normal: [Float, Float, Float],
+      distance: Float,
+      life_time: Integer,
+      color: [Float, Float, Float]
+    }
+
+    type text = {
+      location: [Float, Float, Float],
+      text: String
+    }
+
+    attr_accessor debug_mode: Integer
+    attr_reader lines: Array[line]
+    attr_reader contact_points: Array[contact_point]
+    attr_reader warnings: Array[String]
+    attr_reader texts: Array[text]
+
+    def initialize: (?untyped target) -> void
+    def clear: () -> nil
+    def draw_line: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to, Vector3 | [Numeric, Numeric, Numeric] color) -> nil
+    def draw_contact_point: (Vector3 | [Numeric, Numeric, Numeric] point, Vector3 | [Numeric, Numeric, Numeric] normal, Numeric distance, Integer life_time, Vector3 | [Numeric, Numeric, Numeric] color) -> nil
+                          | (Vector3 | [Numeric, Numeric, Numeric] point, Vector3 | [Numeric, Numeric, Numeric] normal, distance: Numeric, life_time: Integer, color: Vector3 | [Numeric, Numeric, Numeric]) -> nil
+    def report_error_warning: (String message) -> nil
+    def draw_3d_text: (Vector3 | [Numeric, Numeric, Numeric] location, String text) -> nil
+  end
+
+  module IO
+    class DefaultSerializer
+      def initialize: () -> void
+      def serialize_world: (DiscreteDynamicsWorld world) -> String
+      def save_world: (DiscreteDynamicsWorld world, String filename) -> String
+    end
+
+    class BulletWorldImporter
+      def initialize: (DiscreteDynamicsWorld world) -> void
+      def load_file: (String filename) -> bool
+      def delete_all_data: () -> void
+      def verbose_mode: () -> Integer
+      def verbose_mode=: (Integer verbose_mode) -> Integer
+      def num_collision_shapes: () -> Integer
+      def num_rigid_bodies: () -> Integer
+      def num_constraints: () -> Integer
+    end
+
+    class Serializer
+      def initialize: (?Simulation simulation) -> void
+      def serialize_world: (?Simulation | DiscreteDynamicsWorld simulation_or_world) -> String
+      def save_world: (Simulation | DiscreteDynamicsWorld simulation_or_world, String filename) -> String
+      def load_world: (Simulation simulation, String filename) -> (nil | BulletWorldImporter)
+      def save_bullet: (Simulation | DiscreteDynamicsWorld simulation_or_world, String filename) -> String
+      def load_bullet: (Simulation simulation, String filename) -> BulletWorldImporter
+    end
+
+    class URDFImporter
+      attr_reader simulation: Simulation
+      def initialize: (?Simulation simulation) -> void
+      def load: (String filename, **untyped options) -> Integer
+    end
+
+    class SDFImporter
+      attr_reader simulation: Simulation
+      def initialize: (?Simulation simulation) -> void
+      def load: (String filename, **untyped options) -> Array[Integer]
+    end
+
+    class MJCFImporter
+      attr_reader simulation: Simulation
+      def initialize: (?Simulation simulation) -> void
+      def load: (String filename, **untyped options) -> Array[Integer]
+    end
   end
 
   class Simulation
@@ -846,7 +938,7 @@ module Bullet
                    | (Vector3 | [Numeric, Numeric, Numeric] vector) -> Vector3
     def step_simulation: (?time_step: Numeric, ?max_sub_steps: Integer, ?fixed_time_step: Numeric) -> Integer
     def create_collision_shape: (Symbol | String type, **untyped options) -> Integer
-    def create_rigid_body: (mass: Numeric, collision_shape: Integer, ?position: Vector3 | [Numeric, Numeric, Numeric], ?orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric]) -> Integer
+    def create_rigid_body: (mass: Numeric, collision_shape: Integer, ?position: Vector3 | [Numeric, Numeric, Numeric], ?orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?rgba_color: [Numeric, Numeric, Numeric, Numeric]) -> Integer
     def create_constraint: (Symbol | String type, **untyped options) -> Integer
     def load_urdf: (String filename, ?base_position: Vector3 | [Numeric, Numeric, Numeric], ?base_orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?use_fixed_base: bool, ?global_scaling: Numeric) -> Integer
     def load_sdf: (String filename, ?base_position: Vector3 | [Numeric, Numeric, Numeric], ?base_orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?global_scaling: Numeric) -> Array[Integer]
@@ -863,9 +955,12 @@ module Bullet
     def get_joint_info: (Integer body_id, Integer joint_index) -> Hash[Symbol, untyped]
     def get_joint_state: (Integer body_id, Integer joint_index) -> Hash[Symbol, untyped]
     def set_joint_motor_control: (Integer body_id, Integer joint_index, control_mode: Symbol | String, ?target_position: Numeric?, ?target_velocity: Numeric, ?force: Numeric) -> nil
-    def get_camera_image: (Integer width, Integer height, ?camera_eye_position: Vector3 | [Numeric, Numeric, Numeric], ?camera_target_position: Vector3 | [Numeric, Numeric, Numeric], ?camera_up_vector: Vector3 | [Numeric, Numeric, Numeric], ?fov: Numeric, ?near: Numeric, ?far: Numeric) -> [Integer, Integer, Array[Integer], Array[Float], Array[Integer]]
+    def get_camera_image: (Integer width, Integer height, ?camera_eye_position: Vector3 | [Numeric, Numeric, Numeric], ?camera_target_position: Vector3 | [Numeric, Numeric, Numeric], ?camera_up_vector: Vector3 | [Numeric, Numeric, Numeric], ?fov: Numeric, ?near: Numeric, ?far: Numeric, ?background_color: [Numeric, Numeric, Numeric, Numeric], ?body_colors: Hash[Integer, [Numeric, Numeric, Numeric, Numeric]]) -> [Integer, Integer, Array[Integer], Array[Float], Array[Integer]]
+    def debug_draw_world: (?DebugDraw drawer, ?mode: Integer?) -> DebugDraw
     def save_world: (String filename) -> String
+    def save_bullet: (String filename) -> String
     def load_world: (String filename) -> nil
+    def load_bullet: (String filename) -> IO::BulletWorldImporter
     def body: (Integer body_id) -> RigidBody
     def collision_shape: (Integer shape_id) -> Shapes::CollisionShape
     def constraint: (Integer constraint_id) -> Constraints::TypedConstraint

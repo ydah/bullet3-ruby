@@ -21,6 +21,7 @@ module Bullet
       @constraints = []
       @constraint_specs = []
       @models = {}
+      @importers = []
     end
 
     def set_gravity(x, y = nil, z = nil)
@@ -37,7 +38,7 @@ module Bullet
       register_shape(shape, type: type.to_sym, options: serializable_options(options))
     end
 
-    def create_rigid_body(mass:, collision_shape:, position: [0, 0, 0], orientation: Quaternion.identity)
+    def create_rigid_body(mass:, collision_shape:, position: [0, 0, 0], orientation: Quaternion.identity, rgba_color: [220, 220, 220, 255])
       shape = shape_for(collision_shape)
       position_vector = Vector3.coerce(position)
       orientation_quaternion = Quaternion.coerce(orientation)
@@ -52,7 +53,8 @@ module Bullet
         mass: Float(mass),
         collision_shape: Integer(collision_shape),
         position: position_vector.to_a,
-        orientation: orientation_quaternion.to_a
+        orientation: orientation_quaternion.to_a,
+        rgba_color: rgba_color_argument(rgba_color)
       }
       @bodies.length - 1
     end
@@ -203,12 +205,14 @@ module Bullet
       nil
     end
 
-    def get_camera_image(width, height, camera_eye_position: [0, 0, 5], camera_target_position: [0, 0, 0], camera_up_vector: [0, 1, 0], fov: 60.0, near: 0.01, far: 100.0)
+    def get_camera_image(width, height, camera_eye_position: [0, 0, 5], camera_target_position: [0, 0, 0], camera_up_vector: [0, 1, 0], fov: 60.0, near: 0.01, far: 100.0, background_color: [0, 0, 0, 255], body_colors: {})
       width = Integer(width)
       height = Integer(height)
       raise ArgumentError, "width and height must be positive" unless width.positive? && height.positive?
 
       camera = camera_basis(camera_eye_position, camera_target_position, camera_up_vector, Float(fov), Float(far))
+      background_color = rgba_color_argument(background_color)
+      body_colors = body_colors.to_h { |body_id, color| [Integer(body_id), rgba_color_argument(color)] }
       rgb = []
       depth = []
       segmentation = []
@@ -216,16 +220,34 @@ module Bullet
       height.times do |row|
         width.times do |column|
           hit = camera_ray_hit(camera, column, row, width, height)
-          append_camera_pixel(hit, rgb, depth, segmentation)
+          append_camera_pixel(hit, rgb, depth, segmentation, background_color, body_colors)
         end
       end
 
       [width, height, rgb, depth, segmentation]
     end
 
+    def debug_draw_world(drawer = DebugDraw.new, mode: nil)
+      drawer.debug_mode = Integer(mode) if mode
+
+      if world.respond_to?(:debug_drawer=) && world.respond_to?(:debug_draw_world)
+        world.debug_drawer = drawer
+        world.debug_draw_world
+      else
+        draw_world_fallback(drawer)
+      end
+
+      drawer
+    end
+
     def save_world(filename)
       File.write(filename, JSON.pretty_generate(world_snapshot))
       filename
+    end
+
+    def save_bullet(filename)
+      serializer = IO::Serializer.new(self)
+      serializer.save_bullet(self, filename)
     end
 
     def load_world(filename)
@@ -240,7 +262,8 @@ module Bullet
           mass: body.fetch(:mass),
           collision_shape: body.fetch(:collision_shape),
           position: body.fetch(:position),
-          orientation: body.fetch(:orientation)
+          orientation: body.fetch(:orientation),
+          rgba_color: body.fetch(:rgba_color, [220, 220, 220, 255])
         )
       end
       data.fetch(:constraints, []).each do |constraint|
@@ -252,7 +275,18 @@ module Bullet
       nil
     end
 
+    def load_bullet(filename)
+      raise Bullet::Error, "native extension is required for .bullet import" unless IO.const_defined?(:BulletWorldImporter, false)
+
+      importer = IO::BulletWorldImporter.new(world)
+      raise Bullet::Error, "failed to load .bullet file: #{filename}" unless importer.load_file(filename)
+
+      @importers << importer
+      importer
+    end
+
     def reset_simulation
+      clear_importers
       @constraints.compact.each { |constraint| world.remove_constraint(constraint) }
       @bodies.compact.each { |body| world.remove_rigid_body(body) }
       @world = DiscreteDynamicsWorld.create
@@ -295,6 +329,7 @@ module Bullet
     end
 
     def disconnect
+      clear_importers
       @constraints.compact.each { |constraint| world.remove_constraint(constraint) }
       @bodies.compact.each { |body| world.remove_rigid_body(body) }
       @constraints.clear
@@ -344,6 +379,13 @@ module Bullet
       return Vector3.coerce(x) if y.nil? && z.nil?
 
       Vector3.new(x, y, z)
+    end
+
+    def rgba_color_argument(value)
+      values = value.to_a
+      raise ArgumentError, "RGBA color must contain four components" unless values.length == 4
+
+      values.map { |component| Integer(component).clamp(0, 255) }
     end
 
     def build_collision_shape(type, options)
@@ -799,17 +841,69 @@ module Bullet
       ray_test(camera.fetch(:eye), ray_to)
     end
 
-    def append_camera_pixel(hit, rgb, depth, segmentation)
+    def append_camera_pixel(hit, rgb, depth, segmentation, background_color, body_colors)
       if hit
         body_id = body_id_for(hit[:body]) || -1
-        rgb.concat([220, 220, 220, 255])
+        rgb.concat(body_colors.fetch(body_id) { body_color(body_id) })
         depth << hit[:fraction]
         segmentation << body_id
       else
-        rgb.concat([0, 0, 0, 255])
+        rgb.concat(background_color)
         depth << 1.0
         segmentation << -1
       end
+    end
+
+    def body_color(body_id)
+      return [220, 220, 220, 255] if body_id.negative?
+
+      @body_specs.fetch(body_id, nil)&.fetch(:rgba_color, nil) || [220, 220, 220, 255]
+    end
+
+    def draw_world_fallback(drawer)
+      debug_mode = drawer.respond_to?(:debug_mode) ? drawer.debug_mode : DebugDraw::DRAW_AABB
+      draw_aabbs(drawer) unless (debug_mode & DebugDraw::DRAW_AABB).zero?
+      draw_contacts(drawer) unless (debug_mode & DebugDraw::DRAW_CONTACT_POINTS).zero?
+      drawer
+    end
+
+    def draw_aabbs(drawer)
+      @bodies.each_index do |body_id|
+        next unless @bodies[body_id]
+
+        draw_aabb(drawer, get_aabb(body_id), [1.0, 0.0, 0.0])
+      end
+    end
+
+    def draw_aabb(drawer, aabb, color)
+      min, max = aabb
+      corners = [
+        [min[0], min[1], min[2]], [max[0], min[1], min[2]],
+        [max[0], max[1], min[2]], [min[0], max[1], min[2]],
+        [min[0], min[1], max[2]], [max[0], min[1], max[2]],
+        [max[0], max[1], max[2]], [min[0], max[1], max[2]]
+      ]
+      [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]].each do |from, to|
+        drawer.draw_line(corners[from], corners[to], color)
+      end
+    end
+
+    def draw_contacts(drawer)
+      get_contact_points.each do |contact|
+        drawer.draw_contact_point(
+          contact.fetch(:position_world_on_b),
+          contact.fetch(:normal_world_on_b),
+          distance: contact.fetch(:distance),
+          life_time: 0,
+          color: [1.0, 1.0, 0.0]
+        )
+      end
+    end
+
+    def clear_importers
+      @importers.each(&:delete_all_data)
+      @importers.clear
+      nil
     end
 
     def world_snapshot

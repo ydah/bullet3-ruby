@@ -9,5 +9,7 @@
   modes, primitive body creation, URDF/SDF/MJCF loading, joint helpers,
   ray/contact/AABB queries, camera ray rendering, JSON world snapshots,
   dynamics updates, reset, and cleanup.
+- Added native `.bullet` serialization/import wrappers and `btIDebugDraw`
+  debug drawing support.
 - Added RBS signatures, native/fallback specs, examples, and CI coverage for
   native extension builds.

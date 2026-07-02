@@ -92,6 +92,30 @@ world.add_collision_object(object)
 p world.ray_test([0, 5, 0], [0, -5, 0])
 ```
 
+Native `.bullet` serialization and import:
+
+```ruby
+sim = Bullet::Simulation.new
+shape = sim.create_collision_shape(:sphere, radius: 1.0)
+sim.create_rigid_body(mass: 0.0, collision_shape: shape)
+
+sim.save_bullet("world.bullet")
+
+loaded = Bullet::Simulation.new
+importer = loaded.load_bullet("world.bullet")
+p importer.num_rigid_bodies
+```
+
+Debug drawing via Bullet's `btIDebugDraw` interface:
+
+```ruby
+drawer = Bullet::DebugDraw.new
+drawer.debug_mode = Bullet::DebugDraw::DRAW_WIREFRAME | Bullet::DebugDraw::DRAW_AABB
+sim.debug_draw_world(drawer)
+
+p drawer.lines.first
+```
+
 ## Implemented Scope
 
 - LinearMath: `Vector3`, `Quaternion`, `Matrix3x3`, `Transform`
@@ -105,12 +129,12 @@ p world.ray_test([0, 5, 0], [0, -5, 0])
 - High-level API: direct/gui/shared-memory compatible local simulation modes,
   primitive body creation, single- and multi-link URDF, SDF and MJCF primitive
   import, ray/contact/AABB helpers, base pose, joint state/control helpers,
-  camera ray rendering, JSON world snapshots, dynamics updates, reset/disconnect
+  camera ray rendering, JSON world snapshots, native `.bullet` serialization
+  and import, debug drawing, dynamics updates, reset/disconnect
 
 Remaining limitations: GUI and shared-memory modes run through the same local
-simulation backend, camera images use the built-in ray renderer rather than
-TinyRenderer, and native Bullet `.bullet` serializer bindings are represented
-by high-level JSON snapshots.
+simulation backend, and camera images use the built-in ray renderer rather than
+TinyRenderer/OpenGL.
 
 ## Development
 
