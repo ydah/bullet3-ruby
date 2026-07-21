@@ -1,24 +1,24 @@
-# bullet_ruby
+# bullet3
 
 Ruby bindings for the Bullet Physics SDK.
 
 This project exposes a two-layer API:
 
-- low-level Bullet C++ bindings exposed under `Bullet`
+- low-level Bullet3 C++ bindings exposed under `Bullet3`
 - Ruby-friendly helpers and simulation APIs built on top of those bindings
 
 The current native extension covers LinearMath, collision shapes,
 `CollisionObject`/`CollisionWorld`, rigid bodies, dynamics worlds, constraints,
 ray/contact/closest-point queries, raycast vehicles, soft bodies, multibodies,
 primitive URDF loading, pybullet-style data paths, and the high-level
-`Bullet::Simulation` facade.
+`Bullet3::Simulation` facade.
 
 ## Installation
 
 Add the gem from this repository:
 
 ```bash
-gem "bullet_ruby", path: "path/to/bullet_ruby"
+gem "bullet3-ruby", path: "path/to/bullet3-ruby"
 ```
 
 Then install dependencies:
@@ -27,7 +27,7 @@ Then install dependencies:
 bundle install
 ```
 
-Compile the native extension before using the Bullet-backed classes:
+Compile the native extension before using the Bullet3-backed classes:
 
 ```bash
 bundle exec rake compile
@@ -36,12 +36,12 @@ bundle exec rake compile
 ## Usage
 
 ```ruby
-require "bullet_ruby"
+require "bullet3"
 
-v = Bullet::Vector3.new(1, 2, 3)
-axis = Bullet::Vector3.new(0, 0, 1)
-rotation = Bullet::Quaternion.from_axis_angle(axis, Math::PI / 2)
-transform = Bullet::Transform.new(rotation, Bullet::Vector3.new(1, 0, 0))
+v = Bullet3::Vector3.new(1, 2, 3)
+axis = Bullet3::Vector3.new(0, 0, 1)
+rotation = Bullet3::Quaternion.from_axis_angle(axis, Math::PI / 2)
+transform = Bullet3::Transform.new(rotation, Bullet3::Vector3.new(1, 0, 0))
 
 p transform * v
 ```
@@ -49,7 +49,7 @@ p transform * v
 High-level direct simulation:
 
 ```ruby
-sim = Bullet::Simulation.new
+sim = Bullet3::Simulation.new
 sim.set_gravity(0, -10, 0)
 
 plane = sim.create_collision_shape(:static_plane, normal: [0, 1, 0], offset: 0)
@@ -64,13 +64,13 @@ puts sim.get_contact_points(body_a: body).inspect
 ```
 
 By default the pure Ruby fallback is loaded for non-native classes. Set
-`BULLET_RUBY_USE_NATIVE=1` after compiling the extension to load the native
-Bullet bindings.
+`BULLET3_USE_NATIVE=1` after compiling the extension to load the native
+Bullet3 bindings.
 
 Primitive URDF loading and data paths:
 
 ```ruby
-sim = Bullet::Simulation.new
+sim = Bullet3::Simulation.new
 sim.set_gravity(0, 0, -10)
 
 plane = sim.load_urdf("plane.urdf", use_fixed_base: true)
@@ -81,12 +81,12 @@ p sim.get_aabb(cube)
 p sim.get_contact_points(body_a: plane, body_b: cube)
 ```
 
-Lower-level APIs are available for direct Bullet usage:
+Lower-level APIs are available for direct Bullet3 usage:
 
 ```ruby
-world = Bullet::CollisionWorld.create
-shape = Bullet::Shapes::SphereShape.new(1.0)
-object = Bullet::CollisionObject.new(shape)
+world = Bullet3::CollisionWorld.create
+shape = Bullet3::Shapes::SphereShape.new(1.0)
+object = Bullet3::CollisionObject.new(shape)
 world.add_collision_object(object)
 
 p world.ray_test([0, 5, 0], [0, -5, 0])
@@ -95,22 +95,22 @@ p world.ray_test([0, 5, 0], [0, -5, 0])
 Native `.bullet` serialization and import:
 
 ```ruby
-sim = Bullet::Simulation.new
+sim = Bullet3::Simulation.new
 shape = sim.create_collision_shape(:sphere, radius: 1.0)
 sim.create_rigid_body(mass: 0.0, collision_shape: shape)
 
 sim.save_bullet("world.bullet")
 
-loaded = Bullet::Simulation.new
+loaded = Bullet3::Simulation.new
 importer = loaded.load_bullet("world.bullet")
 p importer.num_rigid_bodies
 ```
 
-Debug drawing via Bullet's `btIDebugDraw` interface:
+Debug drawing via Bullet3's `btIDebugDraw` interface:
 
 ```ruby
-drawer = Bullet::DebugDraw.new
-drawer.debug_mode = Bullet::DebugDraw::DRAW_WIREFRAME | Bullet::DebugDraw::DRAW_AABB
+drawer = Bullet3::DebugDraw.new
+drawer.debug_mode = Bullet3::DebugDraw::DRAW_WIREFRAME | Bullet3::DebugDraw::DRAW_AABB
 sim.debug_draw_world(drawer)
 
 p drawer.lines.first
@@ -148,22 +148,22 @@ bundle install
 Run the Ruby fallback test suite:
 
 ```bash
-BULLET_RUBY_SKIP_NATIVE=1 bundle exec rake spec
+BULLET3_SKIP_NATIVE=1 bundle exec rake spec
 ```
 
 Compile and test the native extension:
 
 ```bash
 bundle exec rake compile
-BULLET_RUBY_USE_NATIVE=1 bundle exec rake spec
+BULLET3_USE_NATIVE=1 bundle exec rake spec
 ```
 
 Run examples:
 
 ```bash
-BULLET_RUBY_USE_NATIVE=1 bundle exec ruby examples/hello_world.rb
-BULLET_RUBY_USE_NATIVE=1 bundle exec ruby examples/ray_casting.rb
-BULLET_RUBY_USE_NATIVE=1 bundle exec ruby examples/urdf.rb
+BULLET3_USE_NATIVE=1 bundle exec ruby examples/hello_world.rb
+BULLET3_USE_NATIVE=1 bundle exec ruby examples/ray_casting.rb
+BULLET3_USE_NATIVE=1 bundle exec ruby examples/urdf.rb
 ```
 
 ## Contributing

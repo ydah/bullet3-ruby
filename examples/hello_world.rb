@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "bullet_ruby"
+require "bullet3"
 
-sim = Bullet::Simulation.new
+sim = Bullet3::Simulation.new
 sim.set_gravity(0, -10, 0)
 
 plane_shape = sim.create_collision_shape(:static_plane, normal: [0, 1, 0], offset: 0)

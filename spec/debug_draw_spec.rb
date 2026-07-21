@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-RSpec.describe Bullet::DebugDraw do
+RSpec.describe Bullet3::DebugDraw do
   before do
-    skip "native extension only" unless ENV["BULLET_RUBY_USE_NATIVE"] == "1"
+    skip "native extension only" unless ENV["BULLET3_USE_NATIVE"] == "1"
   end
 
-  it "collects lines from Bullet debug drawing" do
-    sim = Bullet::Simulation.new
+  it "collects lines from Bullet3 debug drawing" do
+    sim = Bullet3::Simulation.new
     shape = sim.create_collision_shape(:box, half_extents: [1, 1, 1])
     sim.create_rigid_body(mass: 0.0, collision_shape: shape)
     drawer = described_class.new

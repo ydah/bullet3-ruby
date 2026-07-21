@@ -1,28 +1,28 @@
 # frozen_string_literal: true
 
-require "bullet_ruby"
+require "bullet3"
 
 def rigid_body(shape, mass, origin)
-  transform = Bullet::Transform.new(Bullet::Quaternion.identity, origin)
-  motion_state = Bullet::MotionState.new(transform)
+  transform = Bullet3::Transform.new(Bullet3::Quaternion.identity, origin)
+  motion_state = Bullet3::MotionState.new(transform)
   inertia = shape.calculate_local_inertia(mass)
-  info = Bullet::RigidBodyConstructionInfo.new(mass, motion_state, shape, inertia)
-  Bullet::RigidBody.new(info)
+  info = Bullet3::RigidBodyConstructionInfo.new(mass, motion_state, shape, inertia)
+  Bullet3::RigidBody.new(info)
 end
 
-world = Bullet::DiscreteDynamicsWorld.create
+world = Bullet3::DiscreteDynamicsWorld.create
 world.gravity = [0, -9.81, 0]
 
-ground = rigid_body(Bullet::Shapes::StaticPlaneShape.new(Bullet::Vector3.new(0, 1, 0), 0), 0.0, [0, 0, 0])
-chassis = rigid_body(Bullet::Shapes::BoxShape.new(Bullet::Vector3.new(1.0, 0.4, 2.0)), 800.0, [0, 1.0, 0])
+ground = rigid_body(Bullet3::Shapes::StaticPlaneShape.new(Bullet3::Vector3.new(0, 1, 0), 0), 0.0, [0, 0, 0])
+chassis = rigid_body(Bullet3::Shapes::BoxShape.new(Bullet3::Vector3.new(1.0, 0.4, 2.0)), 800.0, [0, 1.0, 0])
 world.add_rigid_body(ground)
 world.add_rigid_body(chassis)
 
-tuning = Bullet::VehicleTuning.new
+tuning = Bullet3::VehicleTuning.new
 tuning.suspension_stiffness = 6.0
 tuning.friction_slip = 12.0
 
-vehicle = Bullet::RaycastVehicle.new(tuning, world, chassis)
+vehicle = Bullet3::RaycastVehicle.new(tuning, world, chassis)
 vehicle.set_coordinate_system(0, 1, 2)
 vehicle.add_wheel([0.8, 0.2, 1.2], [0, -1, 0], [-1, 0, 0], 0.6, 0.35, tuning, true)
 vehicle.add_wheel([-0.8, 0.2, 1.2], [0, -1, 0], [-1, 0, 0], 0.6, 0.35, tuning, true)

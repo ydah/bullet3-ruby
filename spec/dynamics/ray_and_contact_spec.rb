@@ -1,25 +1,25 @@
 # frozen_string_literal: true
 
-RSpec.describe "Bullet ray and contact queries" do
+RSpec.describe "Bullet3 ray and contact queries" do
   before do
-    skip "native extension only" unless ENV["BULLET_RUBY_USE_NATIVE"] == "1"
+    skip "native extension only" unless ENV["BULLET3_USE_NATIVE"] == "1"
   end
 
   def rigid_body(shape:, mass:, origin:)
-    transform = Bullet::Transform.new(Bullet::Quaternion.identity, origin)
-    motion_state = Bullet::MotionState.new(transform)
-    info = Bullet::RigidBodyConstructionInfo.new(mass, motion_state, shape)
-    Bullet::RigidBody.new(info)
+    transform = Bullet3::Transform.new(Bullet3::Quaternion.identity, origin)
+    motion_state = Bullet3::MotionState.new(transform)
+    info = Bullet3::RigidBodyConstructionInfo.new(mass, motion_state, shape)
+    Bullet3::RigidBody.new(info)
   end
 
   it "returns closest and all ray hits with Ruby body references" do
-    world = Bullet::DiscreteDynamicsWorld.create
+    world = Bullet3::DiscreteDynamicsWorld.create
     world.gravity = [0, -10, 0]
 
     sphere = rigid_body(
-      shape: Bullet::Shapes::SphereShape.new(1.0),
+      shape: Bullet3::Shapes::SphereShape.new(1.0),
       mass: 0.0,
-      origin: Bullet::Vector3.new(0, 0, 0)
+      origin: Bullet3::Vector3.new(0, 0, 0)
     )
     world.add_rigid_body(sphere)
 
@@ -36,18 +36,18 @@ RSpec.describe "Bullet ray and contact queries" do
   end
 
   it "returns contact manifolds after stepping" do
-    world = Bullet::DiscreteDynamicsWorld.create
+    world = Bullet3::DiscreteDynamicsWorld.create
     world.gravity = [0, -10, 0]
 
     ground = rigid_body(
-      shape: Bullet::Shapes::StaticPlaneShape.new(Bullet::Vector3.new(0, 1, 0), 0),
+      shape: Bullet3::Shapes::StaticPlaneShape.new(Bullet3::Vector3.new(0, 1, 0), 0),
       mass: 0.0,
-      origin: Bullet::Vector3.zero
+      origin: Bullet3::Vector3.zero
     )
     sphere = rigid_body(
-      shape: Bullet::Shapes::SphereShape.new(1.0),
+      shape: Bullet3::Shapes::SphereShape.new(1.0),
       mass: 1.0,
-      origin: Bullet::Vector3.new(0, 1, 0)
+      origin: Bullet3::Vector3.new(0, 1, 0)
     )
 
     world.add_rigid_body(ground)

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "bullet_ruby"
+require "bullet3"
 
-sim = Bullet::Simulation.new
+sim = Bullet3::Simulation.new
 sim.set_gravity(0, 0, -10)
 
 plane_id = sim.load_urdf("plane.urdf", use_fixed_base: true)

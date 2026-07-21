@@ -1,39 +1,39 @@
 # frozen_string_literal: true
 
-RSpec.describe "Bullet::DiscreteDynamicsWorld" do
+RSpec.describe "Bullet3::DiscreteDynamicsWorld" do
   before do
-    skip "native extension only" unless ENV["BULLET_RUBY_USE_NATIVE"] == "1"
+    skip "native extension only" unless ENV["BULLET3_USE_NATIVE"] == "1"
   end
 
   def rigid_body(shape:, mass:, origin:)
-    transform = Bullet::Transform.new(Bullet::Quaternion.identity, origin)
-    motion_state = Bullet::MotionState.new(transform)
-    info = Bullet::RigidBodyConstructionInfo.new(mass, motion_state, shape)
-    Bullet::RigidBody.new(info)
+    transform = Bullet3::Transform.new(Bullet3::Quaternion.identity, origin)
+    motion_state = Bullet3::MotionState.new(transform)
+    info = Bullet3::RigidBodyConstructionInfo.new(mass, motion_state, shape)
+    Bullet3::RigidBody.new(info)
   end
 
   it "creates worlds from default and explicit components" do
-    default_world = Bullet::DiscreteDynamicsWorld.create
+    default_world = Bullet3::DiscreteDynamicsWorld.create
     default_world.gravity = [0, -9.81, 0]
 
-    configuration = Bullet::CollisionConfiguration.new
-    dispatcher = Bullet::CollisionDispatcher.new(configuration)
-    broadphase = Bullet::DbvtBroadphase.new
-    solver = Bullet::SequentialImpulseConstraintSolver.new
-    explicit_world = Bullet::DiscreteDynamicsWorld.new(dispatcher, broadphase, solver, configuration)
+    configuration = Bullet3::CollisionConfiguration.new
+    dispatcher = Bullet3::CollisionDispatcher.new(configuration)
+    broadphase = Bullet3::DbvtBroadphase.new
+    solver = Bullet3::SequentialImpulseConstraintSolver.new
+    explicit_world = Bullet3::DiscreteDynamicsWorld.new(dispatcher, broadphase, solver, configuration)
 
-    expect(default_world.gravity).to eq(Bullet::Vector3.new(0, -9.81, 0))
+    expect(default_world.gravity).to eq(Bullet3::Vector3.new(0, -9.81, 0))
     expect(explicit_world.num_collision_objects).to eq(0)
   end
 
   it "adds, steps, and removes rigid bodies" do
-    world = Bullet::DiscreteDynamicsWorld.create
+    world = Bullet3::DiscreteDynamicsWorld.create
     world.gravity = [0, -10, 0]
 
     body = rigid_body(
-      shape: Bullet::Shapes::SphereShape.new(1.0),
+      shape: Bullet3::Shapes::SphereShape.new(1.0),
       mass: 1.0,
-      origin: Bullet::Vector3.new(0, 10, 0)
+      origin: Bullet3::Vector3.new(0, 10, 0)
     )
 
     world.add_rigid_body(body)

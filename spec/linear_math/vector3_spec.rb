@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe Bullet::Vector3 do
+RSpec.describe Bullet3::Vector3 do
   it "stores and exposes vector components" do
     vector = described_class.new(1, 2, 3)
 
@@ -56,6 +56,6 @@ RSpec.describe Bullet::Vector3 do
     expect(vector.absolute).to eq(described_class.new(1, 2, 3))
     expect(vector.lerp(described_class.new(1, 4, 1), 0.5)).to eq(described_class.new(0, 3, -1))
     expect(vector.to_s).to eq("(-1.0, 2.0, -3.0)")
-    expect(vector.inspect).to eq("#<Bullet::Vector3 (-1.0, 2.0, -3.0)>")
+    expect(vector.inspect).to eq("#<Bullet3::Vector3 (-1.0, 2.0, -3.0)>")
   end
 end

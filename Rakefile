@@ -4,8 +4,9 @@ require "bundler/gem_tasks"
 require "rake/extensiontask"
 require "rspec/core/rake_task"
 
-Rake::ExtensionTask.new("bullet_ruby") do |ext|
-  ext.lib_dir = "lib/bullet_ruby"
+Rake::ExtensionTask.new("bullet3") do |ext|
+  ext.ext_dir = "ext/bullet3"
+  ext.lib_dir = "lib/bullet3"
 end
 
 RSpec::Core::RakeTask.new(:spec)

@@ -1,0 +1,972 @@
+module Bullet3
+  VERSION: String
+
+  class Error < StandardError
+  end
+
+  class Vector3
+    attr_accessor x: Float
+    attr_accessor y: Float
+    attr_accessor z: Float
+
+    def self.zero: () -> Vector3
+    def self.coerce: (Vector3 | [Numeric, Numeric, Numeric]) -> Vector3
+
+    def initialize: (?Numeric x, ?Numeric y, ?Numeric z) -> void
+    def []: (Integer index) -> Float
+    def []=: (Integer index, Numeric value) -> Numeric
+    def +: (Vector3 | [Numeric, Numeric, Numeric] other) -> Vector3
+    def -: (Vector3 | [Numeric, Numeric, Numeric] other) -> Vector3
+    def -@: () -> Vector3
+    def *: (Numeric scalar) -> Vector3
+    def /: (Numeric scalar) -> Vector3
+    def length: () -> Float
+    def length2: () -> Float
+    def normalize: () -> Vector3
+    def normalize!: () -> Vector3
+    def normalized: () -> Vector3
+    def dot: (Vector3 | [Numeric, Numeric, Numeric] other) -> Float
+    def cross: (Vector3 | [Numeric, Numeric, Numeric] other) -> Vector3
+    def distance: (Vector3 | [Numeric, Numeric, Numeric] other) -> Float
+    def distance2: (Vector3 | [Numeric, Numeric, Numeric] other) -> Float
+    def lerp: (Vector3 | [Numeric, Numeric, Numeric] other, Numeric t) -> Vector3
+    def angle: (Vector3 | [Numeric, Numeric, Numeric] other) -> Float
+    def absolute: () -> Vector3
+    def to_a: () -> [Float, Float, Float]
+  end
+
+  class Quaternion
+    attr_accessor x: Float
+    attr_accessor y: Float
+    attr_accessor z: Float
+    attr_accessor w: Float
+
+    def self.identity: () -> Quaternion
+    def self.from_axis_angle: (Vector3 | [Numeric, Numeric, Numeric] axis, Numeric angle) -> Quaternion
+    def self.from_euler: (Numeric roll, Numeric pitch, Numeric yaw) -> Quaternion
+    def self.coerce: (Quaternion | [Numeric, Numeric, Numeric, Numeric]) -> Quaternion
+
+    def initialize: (?Numeric x, ?Numeric y, ?Numeric z, ?Numeric w) -> void
+    def *: (Quaternion | [Numeric, Numeric, Numeric, Numeric] other) -> Quaternion
+    def inverse: () -> Quaternion
+    def angle: () -> Float
+    def axis: () -> Vector3
+    def slerp: (Quaternion | [Numeric, Numeric, Numeric, Numeric] other, Numeric t) -> Quaternion
+    def to_euler: () -> [Float, Float, Float]
+    def to_matrix: () -> Matrix3x3
+    def normalized: () -> Quaternion
+    def to_a: () -> [Float, Float, Float, Float]
+  end
+
+  class Matrix3x3
+    def self.identity: () -> Matrix3x3
+    def self.from_quaternion: (Quaternion | [Numeric, Numeric, Numeric, Numeric] quaternion) -> Matrix3x3
+
+    def initialize: (?Numeric xx, ?Numeric xy, ?Numeric xz, ?Numeric yx, ?Numeric yy, ?Numeric yz, ?Numeric zx, ?Numeric zy, ?Numeric zz) -> void
+    def *: (Vector3 | [Numeric, Numeric, Numeric] vector) -> Vector3
+    def transpose: () -> Matrix3x3
+    def to_a: () -> [[Float, Float, Float], [Float, Float, Float], [Float, Float, Float]]
+  end
+
+  class Transform
+    attr_accessor origin: Vector3
+    attr_accessor rotation: Quaternion
+
+    def self.identity: () -> Transform
+
+    def initialize: (?Quaternion | [Numeric, Numeric, Numeric, Numeric] rotation, ?Vector3 | [Numeric, Numeric, Numeric] origin) -> void
+    def basis: () -> Matrix3x3
+    def *: (Transform | Vector3 other) -> (Transform | Vector3)
+    def inverse: () -> Transform
+    def inverse_times: (Transform other) -> Transform
+    def to_a: () -> [[Float, Float, Float], [Float, Float, Float, Float]]
+  end
+
+  module Shapes
+    class CollisionShape
+      def shape_type: () -> Symbol
+      def local_scaling: () -> Vector3
+      def local_scaling=: (Vector3 | [Numeric, Numeric, Numeric] scaling) -> Vector3
+      def margin: () -> Float
+      def margin=: (Numeric margin) -> Numeric
+      def calculate_local_inertia: (Numeric mass) -> Vector3
+      def bounding_sphere: () -> [Vector3, Float]
+      def aabb: (?Transform transform) -> [Vector3, Vector3]
+    end
+
+    class BoxShape < CollisionShape
+      def initialize: (Vector3 half_extents) -> void
+    end
+
+    class SphereShape < CollisionShape
+      def initialize: (Numeric radius) -> void
+    end
+
+    class CapsuleShape < CollisionShape
+      def initialize: (Numeric radius, Numeric height) -> void
+    end
+
+    class CylinderShape < CollisionShape
+      def initialize: (Vector3 half_extents) -> void
+    end
+
+    class ConeShape < CollisionShape
+      def initialize: (Numeric radius, Numeric height) -> void
+    end
+
+    class StaticPlaneShape < CollisionShape
+      def initialize: (Vector3 normal, Numeric offset) -> void
+    end
+
+    class CompoundShape < CollisionShape
+      def initialize: (?bool enable_dynamic_aabb_tree, ?Integer initial_child_capacity) -> void
+      def add_child_shape: (Transform transform, CollisionShape shape) -> void
+      def remove_child_shape: (CollisionShape shape) -> void
+      def remove_child_shape_by_index: (Integer index) -> void
+      def num_child_shapes: () -> Integer
+      def child_shape: (Integer index) -> CollisionShape
+      def child_transform: (Integer index) -> Transform
+      def update_child_transform: (Integer index, Transform transform, ?bool recalculate) -> void
+      def recalculate_local_aabb: () -> void
+    end
+
+    class ConvexHullShape < CollisionShape
+      def initialize: (?[Vector3 | [Numeric, Numeric, Numeric]] points) -> void
+      def add_point: (Vector3 | [Numeric, Numeric, Numeric] point, ?bool recalculate) -> void
+      def num_points: () -> Integer
+      def point: (Integer index) -> Vector3
+      def optimize_convex_hull: () -> void
+    end
+
+    type triangle = [Vector3 | [Numeric, Numeric, Numeric], Vector3 | [Numeric, Numeric, Numeric], Vector3 | [Numeric, Numeric, Numeric]]
+
+    class TriangleMeshShape < CollisionShape
+      def initialize: ([triangle] triangles) -> void
+      def num_triangles: () -> Integer
+      def uses_quantized_aabb_compression: () -> bool
+    end
+
+    class ConvexTriangleMeshShape < CollisionShape
+      def initialize: ([triangle] triangles) -> void
+      def num_triangles: () -> Integer
+    end
+
+    class MultiSphereShape < CollisionShape
+      def initialize: ([Vector3 | [Numeric, Numeric, Numeric]] positions, [Numeric] radii) -> void
+      def sphere_count: () -> Integer
+      def sphere_position: (Integer index) -> Vector3
+      def sphere_radius: (Integer index) -> Float
+    end
+
+    class HeightfieldShape < CollisionShape
+      def initialize: (Integer width, Integer length, [Numeric] heights, Numeric min_height, Numeric max_height, ?Integer up_axis, ?bool flip_quad_edges) -> void
+      def width: () -> Integer
+      def length: () -> Integer
+      def height: (Integer x, Integer y) -> Float
+      def up_axis: () -> Integer
+      def vertex: (Integer x, Integer y) -> Vector3
+      def use_diamond_subdivision=: (bool enabled) -> bool
+      def use_zigzag_subdivision=: (bool enabled) -> bool
+      def flip_triangle_winding=: (bool enabled) -> bool
+    end
+  end
+
+  class CollisionConfiguration
+    def initialize: () -> void
+  end
+
+  class CollisionDispatcher
+    def initialize: (CollisionConfiguration configuration) -> void
+  end
+
+  class DbvtBroadphase
+    def initialize: () -> void
+  end
+
+  class AxisSweep3
+    def initialize: (Vector3 | [Numeric, Numeric, Numeric] world_aabb_min, Vector3 | [Numeric, Numeric, Numeric] world_aabb_max, ?Integer max_handles) -> void
+  end
+
+  class SequentialImpulseConstraintSolver
+    def initialize: () -> void
+  end
+
+  class MotionState
+    attr_accessor world_transform: Transform
+
+    def initialize: (?Transform start_transform) -> void
+  end
+
+  class RigidBodyConstructionInfo
+    def initialize: (Numeric mass, MotionState motion_state, Shapes::CollisionShape collision_shape, ?Vector3 | [Numeric, Numeric, Numeric] local_inertia) -> void
+    def mass: () -> Float
+    def local_inertia: () -> Vector3
+    def friction: () -> Float
+    def friction=: (Numeric friction) -> Numeric
+    def restitution: () -> Float
+    def restitution=: (Numeric restitution) -> Numeric
+  end
+
+  class RigidBody
+    def initialize: (RigidBodyConstructionInfo construction_info) -> void
+    def mass: () -> Float
+    def collision_shape: () -> Shapes::CollisionShape
+    def world_transform: () -> Transform
+    def world_transform=: (Transform transform) -> Transform
+    def linear_velocity: () -> Vector3
+    def linear_velocity=: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> Vector3
+    def angular_velocity: () -> Vector3
+    def angular_velocity=: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> Vector3
+    def total_force: () -> Vector3
+    def total_torque: () -> Vector3
+    def friction: () -> Float
+    def friction=: (Numeric friction) -> Numeric
+    def restitution: () -> Float
+    def restitution=: (Numeric restitution) -> Numeric
+    def damping: () -> [Float, Float]
+    def set_damping: (Numeric linear_damping, Numeric angular_damping) -> [Float, Float]
+    def apply_central_force: (Vector3 | [Numeric, Numeric, Numeric] force) -> void
+    def apply_force: (Vector3 | [Numeric, Numeric, Numeric] force, Vector3 | [Numeric, Numeric, Numeric] relative_position) -> void
+    def apply_torque: (Vector3 | [Numeric, Numeric, Numeric] torque) -> void
+    def apply_central_impulse: (Vector3 | [Numeric, Numeric, Numeric] impulse) -> void
+    def apply_impulse: (Vector3 | [Numeric, Numeric, Numeric] impulse, Vector3 | [Numeric, Numeric, Numeric] relative_position) -> void
+    def clear_forces: () -> void
+    def activate: () -> void
+    def active?: () -> bool
+    def static?: () -> bool
+    def kinematic?: () -> bool
+  end
+
+  class CollisionObject
+    def initialize: (?Shapes::CollisionShape collision_shape) -> void
+    def world_transform: () -> Transform
+    def world_transform=: (Transform transform) -> Transform
+    def collision_shape: () -> Shapes::CollisionShape?
+    def collision_shape=: (Shapes::CollisionShape collision_shape) -> void
+    def friction: () -> Float
+    def friction=: (Numeric friction) -> Numeric
+    def restitution: () -> Float
+    def restitution=: (Numeric restitution) -> Numeric
+    def collision_flags: () -> Integer
+    def collision_flags=: (Integer flags) -> Integer
+    def active?: () -> bool
+    def activate: () -> void
+    def aabb: () -> [Vector3, Vector3]
+  end
+
+  class VehicleTuning
+    def initialize: () -> void
+    def suspension_stiffness: () -> Float
+    def suspension_stiffness=: (Numeric value) -> Numeric
+    def suspension_compression: () -> Float
+    def suspension_compression=: (Numeric value) -> Numeric
+    def suspension_damping: () -> Float
+    def suspension_damping=: (Numeric value) -> Numeric
+    def max_suspension_travel_cm: () -> Float
+    def max_suspension_travel_cm=: (Numeric value) -> Numeric
+    def friction_slip: () -> Float
+    def friction_slip=: (Numeric value) -> Numeric
+    def max_suspension_force: () -> Float
+    def max_suspension_force=: (Numeric value) -> Numeric
+  end
+
+  class WheelInfo
+    def index: () -> Integer
+    def front_wheel?: () -> bool
+    def world_transform: () -> Transform
+    def chassis_connection_point: () -> Vector3
+    def wheel_direction: () -> Vector3
+    def wheel_axle: () -> Vector3
+    def suspension_rest_length: () -> Float
+    def radius: () -> Float
+    def suspension_stiffness: () -> Float
+    def suspension_stiffness=: (Numeric value) -> Numeric
+    def damping_compression: () -> Float
+    def damping_compression=: (Numeric value) -> Numeric
+    def damping_relaxation: () -> Float
+    def damping_relaxation=: (Numeric value) -> Numeric
+    def friction_slip: () -> Float
+    def friction_slip=: (Numeric value) -> Numeric
+    def steering: () -> Float
+    def rotation: () -> Float
+    def delta_rotation: () -> Float
+    def roll_influence: () -> Float
+    def roll_influence=: (Numeric value) -> Numeric
+    def engine_force: () -> Float
+    def brake: () -> Float
+    def suspension_force: () -> Float
+    def skid_info: () -> Float
+    def contact?: () -> bool
+    def contact_point: () -> Vector3
+    def contact_normal: () -> Vector3
+  end
+
+  class RaycastVehicle
+    def initialize: (VehicleTuning tuning, DiscreteDynamicsWorld world, RigidBody chassis) -> void
+    def add_wheel: (Vector3 | [Numeric, Numeric, Numeric] connection_point, Vector3 | [Numeric, Numeric, Numeric] wheel_direction, Vector3 | [Numeric, Numeric, Numeric] wheel_axle, Numeric suspension_rest_length, Numeric wheel_radius, VehicleTuning tuning, bool front_wheel) -> WheelInfo
+    def num_wheels: () -> Integer
+    def wheel_info: (Integer index) -> WheelInfo
+    def wheel_transform: (Integer index) -> Transform
+    def update_wheel_transform: (Integer index, ?bool interpolated_transform) -> void
+    def chassis_world_transform: () -> Transform
+    def steering_value: (Integer wheel) -> Float
+    def set_steering_value: (Numeric steering, Integer wheel) -> void
+    def apply_engine_force: (Numeric force, Integer wheel) -> void
+    def set_brake: (Numeric brake, Integer wheel) -> void
+    def reset_suspension: () -> void
+    def current_speed_km_hour: () -> Float
+    def forward_vector: () -> Vector3
+    def pitch_control=: (Numeric pitch) -> void
+    def set_coordinate_system: (Integer right_index, Integer up_index, Integer forward_index) -> void
+    def coordinate_system: () -> Array[Integer]
+    def update_vehicle: (Numeric step) -> void
+  end
+
+  module Data
+    DEFAULT_PATH: String
+
+    def self.search_paths: () -> Array[String]
+    def self.add_search_path: (String path) -> String
+    def self.remove_search_path: (String path) -> String?
+    def self.path: (*String parts) -> String
+    def self.find: (String filename) -> String
+  end
+
+  module SoftBody
+    class SoftBodyWorldInfo
+      def initialize: () -> void
+      def gravity: () -> Vector3
+      def gravity=: (Vector3 | [Numeric, Numeric, Numeric] gravity) -> Vector3
+      def air_density: () -> Float
+      def air_density=: (Numeric value) -> Numeric
+      def water_density: () -> Float
+      def water_density=: (Numeric value) -> Numeric
+      def water_offset: () -> Float
+      def water_offset=: (Numeric value) -> Numeric
+      def water_normal: () -> Vector3
+      def water_normal=: (Vector3 | [Numeric, Numeric, Numeric] normal) -> Vector3
+      def max_displacement: () -> Float
+      def max_displacement=: (Numeric value) -> Numeric
+      def reset_sparse_sdf: () -> void
+    end
+
+    class SoftBody
+      type ray_hit = {
+        feature: Symbol,
+        index: Integer,
+        fraction: Float
+      }
+
+      def node_count: () -> Integer
+      def link_count: () -> Integer
+      def face_count: () -> Integer
+      def tetra_count: () -> Integer
+      def cluster_count: () -> Integer
+      def total_mass: () -> Float
+      def set_total_mass: (Numeric mass, ?bool from_faces) -> void
+      def node_mass: (Integer index) -> Float
+      def set_node_mass: (Integer index, Numeric mass) -> Numeric
+      def node_position: (Integer index) -> Vector3
+      def node_velocity: (Integer index) -> Vector3
+      def center_of_mass: () -> Vector3
+      def linear_velocity: () -> Vector3
+      def linear_velocity=: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> void
+      def set_velocity: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> void
+      def set_angular_velocity: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> void
+      def add_force: (Vector3 | [Numeric, Numeric, Numeric] force) -> void
+      def add_velocity: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> void
+      def translate: (Vector3 | [Numeric, Numeric, Numeric] translation) -> void
+      def rotate: (Quaternion | [Numeric, Numeric, Numeric, Numeric] rotation) -> void
+      def scale: (Vector3 | [Numeric, Numeric, Numeric] scaling) -> void
+      def transform: (Transform transform) -> void
+      def set_pose: (bool volume, bool frame) -> void
+      def generate_bending_constraints: (Integer distance) -> Integer
+      def generate_clusters: (Integer count) -> Integer
+      def randomize_constraints: () -> void
+      def wind_velocity: () -> Vector3
+      def wind_velocity=: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> Vector3
+      def set_zero_velocity: () -> void
+      def self_collision?: () -> bool
+      def self_collision=: (bool enabled) -> bool
+      def aabb: () -> [Vector3, Vector3]
+      def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
+      def append_anchor: (Integer node, RigidBody rigid_body, ?bool disable_collision_between_linked_bodies, ?Numeric influence) -> void
+    end
+
+    class SoftRigidDynamicsWorld
+      def self.create: () -> SoftRigidDynamicsWorld
+      def initialize: () -> void
+      def gravity: () -> Vector3
+      def gravity=: (Vector3 | [Numeric, Numeric, Numeric] gravity) -> Vector3
+      def world_info: () -> SoftBodyWorldInfo
+      def add_rigid_body: (RigidBody rigid_body) -> void
+      def remove_rigid_body: (RigidBody rigid_body) -> void
+      def add_soft_body: (SoftBody soft_body, ?Integer collision_filter_group, ?Integer collision_filter_mask) -> void
+      def remove_soft_body: (SoftBody soft_body) -> void
+      def step_simulation: (Numeric time_step, ?Integer max_sub_steps, ?Numeric fixed_time_step) -> Integer
+      def num_collision_objects: () -> Integer
+      def num_soft_bodies: () -> Integer
+      def draw_flags: () -> Integer
+      def draw_flags=: (Integer flags) -> Integer
+      def clear_forces: () -> void
+    end
+
+    module Helpers
+      def self.create_rope: (SoftBodyWorldInfo world_info, Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to, Integer resolution, Integer fixed_nodes) -> SoftBody
+      def self.create_patch: (SoftBodyWorldInfo world_info, Vector3 | [Numeric, Numeric, Numeric] corner00, Vector3 | [Numeric, Numeric, Numeric] corner10, Vector3 | [Numeric, Numeric, Numeric] corner01, Vector3 | [Numeric, Numeric, Numeric] corner11, Integer resolution_x, Integer resolution_y, Integer fixed_nodes, bool generate_diagonals, ?Numeric perturbation) -> SoftBody
+      def self.create_ellipsoid: (SoftBodyWorldInfo world_info, Vector3 | [Numeric, Numeric, Numeric] center, Vector3 | [Numeric, Numeric, Numeric] radius, Integer resolution) -> SoftBody
+      def self.create_from_tri_mesh: (SoftBodyWorldInfo world_info, Array[Vector3 | [Numeric, Numeric, Numeric]] vertices, Array[[Integer, Integer, Integer] | Integer] triangles, ?bool randomize_constraints) -> SoftBody
+      def self.create_from_convex_hull: (SoftBodyWorldInfo world_info, Array[Vector3 | [Numeric, Numeric, Numeric]] points, ?bool randomize_constraints) -> SoftBody
+    end
+  end
+
+  module MultiBody
+    class MultiBody
+      def initialize: (Integer link_count, Numeric base_mass, Vector3 | [Numeric, Numeric, Numeric] base_inertia, bool fixed_base, bool can_sleep, ?bool deprecated_multi_dof) -> void
+      def num_links: () -> Integer
+      def num_dofs: () -> Integer
+      def num_pos_vars: () -> Integer
+      def base_mass: () -> Float
+      def base_mass=: (Numeric mass) -> Numeric
+      def base_inertia: () -> Vector3
+      def base_inertia=: (Vector3 | [Numeric, Numeric, Numeric] inertia) -> Vector3
+      def base_position: () -> Vector3
+      def base_position=: (Vector3 | [Numeric, Numeric, Numeric] position) -> Vector3
+      def base_velocity: () -> Vector3
+      def base_velocity=: (Vector3 | [Numeric, Numeric, Numeric] velocity) -> Vector3
+      def base_omega: () -> Vector3
+      def base_omega=: (Vector3 | [Numeric, Numeric, Numeric] omega) -> Vector3
+      def world_to_base_rotation: () -> Quaternion
+      def world_to_base_rotation=: (Quaternion | [Numeric, Numeric, Numeric, Numeric] rotation) -> Quaternion
+      def base_world_transform: () -> Transform
+      def base_world_transform=: (Transform transform) -> Transform
+      def fixed_base?: () -> bool
+      def can_sleep?: () -> bool
+      def can_sleep=: (bool can_sleep) -> bool
+      def awake?: () -> bool
+      def wake_up: () -> void
+      def go_to_sleep: () -> void
+      def linear_damping: () -> Float
+      def linear_damping=: (Numeric damping) -> Numeric
+      def angular_damping: () -> Float
+      def angular_damping=: (Numeric damping) -> Numeric
+      def self_collision?: () -> bool
+      def self_collision=: (bool enabled) -> bool
+      def joint_position: (Integer link) -> Float
+      def set_joint_position: (Integer link, Numeric position) -> Numeric
+      def joint_velocity: (Integer link) -> Float
+      def set_joint_velocity: (Integer link, Numeric velocity) -> Numeric
+      def setup_fixed: (Integer link, Numeric mass, Vector3 | [Numeric, Numeric, Numeric] inertia, Integer parent, Quaternion | [Numeric, Numeric, Numeric, Numeric] parent_to_this_rotation, Vector3 | [Numeric, Numeric, Numeric] parent_pivot, Vector3 | [Numeric, Numeric, Numeric] child_pivot, ?bool disable_parent_collision) -> void
+      def setup_revolute: (Integer link, Numeric mass, Vector3 | [Numeric, Numeric, Numeric] inertia, Integer parent, Quaternion | [Numeric, Numeric, Numeric, Numeric] parent_to_this_rotation, Vector3 | [Numeric, Numeric, Numeric] joint_axis, Vector3 | [Numeric, Numeric, Numeric] parent_pivot, Vector3 | [Numeric, Numeric, Numeric] child_pivot, ?bool disable_parent_collision) -> void
+      def setup_prismatic: (Integer link, Numeric mass, Vector3 | [Numeric, Numeric, Numeric] inertia, Integer parent, Quaternion | [Numeric, Numeric, Numeric, Numeric] parent_to_this_rotation, Vector3 | [Numeric, Numeric, Numeric] joint_axis, Vector3 | [Numeric, Numeric, Numeric] parent_pivot, Vector3 | [Numeric, Numeric, Numeric] child_pivot, ?bool disable_parent_collision) -> void
+      def finalize_multi_dof: () -> void
+      def clear_forces_and_torques: () -> void
+      def clear_velocities: () -> void
+      def add_base_force: (Vector3 | [Numeric, Numeric, Numeric] force) -> void
+      def add_base_torque: (Vector3 | [Numeric, Numeric, Numeric] torque) -> void
+      def add_link_force: (Integer link, Vector3 | [Numeric, Numeric, Numeric] force) -> void
+      def add_link_torque: (Integer link, Vector3 | [Numeric, Numeric, Numeric] torque) -> void
+      def add_joint_torque: (Integer link, Numeric torque) -> void
+      def parent: (Integer link) -> Integer
+      def set_base_collider: (MultiBodyLinkCollider collider) -> void
+      def set_link_collider: (Integer link, MultiBodyLinkCollider collider) -> void
+    end
+
+    class MultiBodyLinkCollider
+      def initialize: (MultiBody multi_body, Integer link) -> void
+      def link: () -> Integer
+      def world_transform: () -> Transform
+      def world_transform=: (Transform transform) -> Transform
+      def collision_shape: () -> Shapes::CollisionShape
+      def collision_shape=: (Shapes::CollisionShape collision_shape) -> void
+      def collision_flags: () -> Integer
+      def collision_flags=: (Integer flags) -> Integer
+      def kinematic?: () -> bool
+      def static_or_kinematic?: () -> bool
+    end
+
+    class MultiBodyConstraint
+      def constraint_type: () -> Symbol
+      def num_rows: () -> Integer
+      def max_applied_impulse: () -> Float
+      def max_applied_impulse=: (Numeric impulse) -> Numeric
+      def applied_impulse: (Integer row) -> Float
+      def position: (Integer row) -> Float
+    end
+
+    class MultiBodyJointMotor < MultiBodyConstraint
+      def initialize: (MultiBody multi_body, Integer link, Numeric desired_velocity, Numeric max_motor_impulse) -> void
+                    | (MultiBody multi_body, Integer link, Integer link_dof, Numeric desired_velocity, Numeric max_motor_impulse) -> void
+      def set_velocity_target: (Numeric velocity, ?Numeric kd) -> void
+      def set_position_target: (Numeric position, ?Numeric kp) -> void
+      def erp: () -> Float
+      def erp=: (Numeric erp) -> Numeric
+      def rhs_clamp=: (Numeric clamp) -> void
+    end
+
+    class MultiBodyJointLimitConstraint < MultiBodyConstraint
+      def initialize: (MultiBody multi_body, Integer link, Numeric lower, Numeric upper) -> void
+      def lower_bound: () -> Float
+      def lower_bound=: (Numeric lower) -> Numeric
+      def upper_bound: () -> Float
+      def upper_bound=: (Numeric upper) -> Numeric
+    end
+
+    class MultiBodyPoint2Point < MultiBodyConstraint
+      def initialize: (MultiBody multi_body, Integer link, RigidBody rigid_body, Vector3 | [Numeric, Numeric, Numeric] pivot_in_a, Vector3 | [Numeric, Numeric, Numeric] pivot_in_b) -> void
+                    | (MultiBody multi_body_a, Integer link_a, MultiBody multi_body_b, Integer link_b, Vector3 | [Numeric, Numeric, Numeric] pivot_in_a, Vector3 | [Numeric, Numeric, Numeric] pivot_in_b) -> void
+      def pivot_in_b: () -> Vector3
+      def pivot_in_b=: (Vector3 | [Numeric, Numeric, Numeric] pivot) -> Vector3
+    end
+
+    class MultiBodyDynamicsWorld
+      def self.create: () -> MultiBodyDynamicsWorld
+      def initialize: () -> void
+      def gravity: () -> Vector3
+      def gravity=: (Vector3 | [Numeric, Numeric, Numeric] gravity) -> Vector3
+      def add_multi_body: (MultiBody multi_body, ?Integer group, ?Integer mask) -> void
+      def remove_multi_body: (MultiBody multi_body) -> void
+      def add_constraint: (MultiBodyConstraint constraint) -> void
+      def remove_constraint: (MultiBodyConstraint constraint) -> void
+      def add_link_collider: (MultiBodyLinkCollider collider, ?Integer group, ?Integer mask) -> void
+      def remove_link_collider: (MultiBodyLinkCollider collider) -> void
+      def step_simulation: (Numeric time_step, ?Integer max_sub_steps, ?Numeric fixed_time_step) -> Integer
+      def num_multi_bodies: () -> Integer
+      def num_multi_body_constraints: () -> Integer
+      def num_collision_objects: () -> Integer
+      def forward_kinematics: () -> void
+      def clear_forces: () -> void
+      def clear_multi_body_forces: () -> void
+    end
+  end
+
+  module Constraints
+    class TypedConstraint
+      def constraint_type: () -> Symbol
+      def enabled?: () -> bool
+      def enabled=: (bool enabled) -> bool
+      def breaking_impulse_threshold: () -> Float
+      def breaking_impulse_threshold=: (Numeric threshold) -> Numeric
+      def debug_draw_size: () -> Float
+      def debug_draw_size=: (Numeric size) -> Numeric
+      def enable_feedback: (bool enabled) -> void
+      def needs_feedback?: () -> bool
+      def applied_impulse: () -> Float
+    end
+
+    class Point2PointConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, Vector3 | [Numeric, Numeric, Numeric] pivot_a) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Vector3 | [Numeric, Numeric, Numeric] pivot_a, Vector3 | [Numeric, Numeric, Numeric] pivot_b) -> void
+      def pivot_in_a: () -> Vector3
+      def pivot_in_a=: (Vector3 | [Numeric, Numeric, Numeric] pivot) -> Vector3
+      def pivot_in_b: () -> Vector3
+      def pivot_in_b=: (Vector3 | [Numeric, Numeric, Numeric] pivot) -> Vector3
+    end
+
+    class HingeConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, Vector3 | [Numeric, Numeric, Numeric] pivot_a, Vector3 | [Numeric, Numeric, Numeric] axis_a, ?bool use_reference_frame_a) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Vector3 | [Numeric, Numeric, Numeric] pivot_a, Vector3 | [Numeric, Numeric, Numeric] pivot_b, Vector3 | [Numeric, Numeric, Numeric] axis_a, Vector3 | [Numeric, Numeric, Numeric] axis_b, ?bool use_reference_frame_a) -> void
+      def angle: () -> Float
+      def lower_limit: () -> Float
+      def upper_limit: () -> Float
+      def angular_motor_enabled?: () -> bool
+      def motor_target_velocity: () -> Float
+      def max_motor_impulse: () -> Float
+      def enable_angular_motor: (bool enabled, Numeric target_velocity, Numeric max_motor_impulse) -> void
+      def set_limit: (Numeric low, Numeric high, ?Numeric softness, ?Numeric bias_factor, ?Numeric relaxation_factor) -> void
+      def frame_a: () -> Transform
+      def frame_b: () -> Transform
+    end
+
+    class FixedConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, RigidBody rigid_body_b, Transform frame_a, Transform frame_b) -> void
+    end
+
+    class SliderConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_b, Transform frame_b, ?bool use_linear_reference_frame_a) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Transform frame_a, Transform frame_b, ?bool use_linear_reference_frame_a) -> void
+      def frame_a: () -> Transform
+      def frame_b: () -> Transform
+      def set_frames: (Transform frame_a, Transform frame_b) -> void
+      def lower_linear_limit: () -> Float
+      def lower_linear_limit=: (Numeric limit) -> Numeric
+      def upper_linear_limit: () -> Float
+      def upper_linear_limit=: (Numeric limit) -> Numeric
+      def lower_angular_limit: () -> Float
+      def lower_angular_limit=: (Numeric limit) -> Numeric
+      def upper_angular_limit: () -> Float
+      def upper_angular_limit=: (Numeric limit) -> Numeric
+      def linear_position: () -> Float
+      def angular_position: () -> Float
+      def powered_linear_motor?: () -> bool
+      def powered_linear_motor=: (bool enabled) -> bool
+      def target_linear_motor_velocity: () -> Float
+      def target_linear_motor_velocity=: (Numeric velocity) -> Numeric
+      def max_linear_motor_force: () -> Float
+      def max_linear_motor_force=: (Numeric force) -> Numeric
+      def powered_angular_motor?: () -> bool
+      def powered_angular_motor=: (bool enabled) -> bool
+      def target_angular_motor_velocity: () -> Float
+      def target_angular_motor_velocity=: (Numeric velocity) -> Numeric
+      def max_angular_motor_force: () -> Float
+      def max_angular_motor_force=: (Numeric force) -> Numeric
+    end
+
+    class ConeTwistConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, Transform frame_a) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Transform frame_a, Transform frame_b) -> void
+      def set_limit: (Numeric swing_span1, Numeric swing_span2, Numeric twist_span, ?Numeric softness, ?Numeric bias_factor, ?Numeric relaxation_factor) -> void
+      def swing_span1: () -> Float
+      def swing_span2: () -> Float
+      def twist_span: () -> Float
+      def limit_softness: () -> Float
+      def bias_factor: () -> Float
+      def relaxation_factor: () -> Float
+      def twist_angle: () -> Float
+      def angular_only?: () -> bool
+      def angular_only=: (bool angular_only) -> bool
+      def damping: () -> Float
+      def damping=: (Numeric damping) -> Numeric
+      def motor_enabled?: () -> bool
+      def enable_motor: (bool enabled) -> void
+      def max_motor_impulse: () -> Float
+      def max_motor_impulse=: (Numeric impulse) -> Numeric
+      def motor_target: () -> Quaternion
+      def motor_target=: (Quaternion | [Numeric, Numeric, Numeric, Numeric] target) -> Quaternion
+      def frame_a: () -> Transform
+      def frame_b: () -> Transform
+    end
+
+    class Generic6DofConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_b, Transform frame_b, ?bool use_linear_reference_frame_b) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Transform frame_a, Transform frame_b, ?bool use_linear_reference_frame_a) -> void
+      def frame_a: () -> Transform
+      def frame_b: () -> Transform
+      def set_frames: (Transform frame_a, Transform frame_b) -> void
+      def linear_lower_limit: () -> Vector3
+      def linear_lower_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def linear_upper_limit: () -> Vector3
+      def linear_upper_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def angular_lower_limit: () -> Vector3
+      def angular_lower_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def angular_upper_limit: () -> Vector3
+      def angular_upper_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def set_limit: (Integer axis, Numeric low, Numeric high) -> void
+      def limited?: (Integer axis) -> bool
+      def axis: (Integer axis) -> Vector3
+      def angle: (Integer axis) -> Float
+      def relative_pivot_position: (Integer axis) -> Float
+      def use_frame_offset?: () -> bool
+      def use_frame_offset=: (bool enabled) -> bool
+      def use_linear_reference_frame_a?: () -> bool
+      def use_linear_reference_frame_a=: (bool enabled) -> bool
+      def set_axis: (Vector3 | [Numeric, Numeric, Numeric] axis1, Vector3 | [Numeric, Numeric, Numeric] axis2) -> void
+    end
+
+    class Generic6DofSpring2Constraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_b, Transform frame_b, ?Integer rotate_order) -> void
+                    | (RigidBody rigid_body_a, RigidBody rigid_body_b, Transform frame_a, Transform frame_b, ?Integer rotate_order) -> void
+      def frame_a: () -> Transform
+      def frame_b: () -> Transform
+      def set_frames: (Transform frame_a, Transform frame_b) -> void
+      def linear_lower_limit: () -> Vector3
+      def linear_lower_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def linear_upper_limit: () -> Vector3
+      def linear_upper_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def angular_lower_limit: () -> Vector3
+      def angular_lower_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def angular_upper_limit: () -> Vector3
+      def angular_upper_limit=: (Vector3 | [Numeric, Numeric, Numeric] limit) -> Vector3
+      def set_limit: (Integer axis, Numeric low, Numeric high) -> void
+      def limited?: (Integer axis) -> bool
+      def axis: (Integer axis) -> Vector3
+      def angle: (Integer axis) -> Float
+      def relative_pivot_position: (Integer axis) -> Float
+      def rotation_order: () -> Integer
+      def rotation_order=: (Integer rotate_order) -> Integer
+      def set_axis: (Vector3 | [Numeric, Numeric, Numeric] axis1, Vector3 | [Numeric, Numeric, Numeric] axis2) -> void
+      def enable_motor: (Integer axis, bool enabled) -> void
+      def set_servo: (Integer axis, bool enabled) -> void
+      def set_target_velocity: (Integer axis, Numeric velocity) -> void
+      def set_servo_target: (Integer axis, Numeric target) -> void
+      def set_max_motor_force: (Integer axis, Numeric force) -> void
+      def enable_spring: (Integer axis, bool enabled) -> void
+      def set_stiffness: (Integer axis, Numeric stiffness, ?bool limit_if_needed) -> void
+      def set_damping: (Integer axis, Numeric damping, ?bool limit_if_needed) -> void
+      def set_equilibrium_point: () -> void
+      def set_axis_equilibrium_point: (Integer axis) -> void
+      def set_axis_equilibrium_point_value: (Integer axis, Numeric value) -> void
+    end
+
+    class GearConstraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, RigidBody rigid_body_b, Vector3 | [Numeric, Numeric, Numeric] axis_a, Vector3 | [Numeric, Numeric, Numeric] axis_b, ?Numeric ratio) -> void
+      def axis_a: () -> Vector3
+      def axis_a=: (Vector3 | [Numeric, Numeric, Numeric] axis) -> Vector3
+      def axis_b: () -> Vector3
+      def axis_b=: (Vector3 | [Numeric, Numeric, Numeric] axis) -> Vector3
+      def ratio: () -> Float
+      def ratio=: (Numeric ratio) -> Numeric
+    end
+
+    class Hinge2Constraint < TypedConstraint
+      def initialize: (RigidBody rigid_body_a, RigidBody rigid_body_b, Vector3 | [Numeric, Numeric, Numeric] anchor, Vector3 | [Numeric, Numeric, Numeric] axis1, Vector3 | [Numeric, Numeric, Numeric] axis2) -> void
+      def anchor: () -> Vector3
+      def anchor2: () -> Vector3
+      def axis1: () -> Vector3
+      def axis2: () -> Vector3
+      def angle1: () -> Float
+      def angle2: () -> Float
+      def set_upper_limit: (Numeric limit) -> void
+      def set_lower_limit: (Numeric limit) -> void
+    end
+  end
+
+  class CollisionWorld
+    type ray_hit = {
+      body: CollisionObject?,
+      fraction: Float,
+      point: Vector3,
+      normal: Vector3
+    }
+
+    type contact_hit = {
+      body0: CollisionObject?,
+      body1: CollisionObject?,
+      position_world_on_a: Vector3,
+      position_world_on_b: Vector3,
+      normal_world_on_b: Vector3,
+      distance: Float,
+      part_id0: Integer,
+      index0: Integer,
+      part_id1: Integer,
+      index1: Integer
+    }
+
+    def self.create: () -> CollisionWorld
+
+    def initialize: () -> void
+                  | (CollisionDispatcher dispatcher, DbvtBroadphase broadphase, CollisionConfiguration configuration) -> void
+                  | (CollisionDispatcher dispatcher, AxisSweep3 broadphase, CollisionConfiguration configuration) -> void
+    def add_collision_object: (CollisionObject collision_object, ?Integer group, ?Integer mask) -> void
+    def remove_collision_object: (CollisionObject collision_object) -> void
+    def num_collision_objects: () -> Integer
+    def update_aabbs: () -> void
+    def compute_overlapping_pairs: () -> void
+    def ray_test_closest: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
+    def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
+    def ray_test_all: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> Array[ray_hit]
+    def contact_test: (CollisionObject collision_object) -> Array[contact_hit]
+    def contact_pair_test: (CollisionObject collision_object_a, CollisionObject collision_object_b) -> Array[contact_hit]
+    def closest_points: (CollisionObject collision_object_a, CollisionObject collision_object_b, ?Numeric distance_threshold) -> Array[contact_hit]
+  end
+
+  class DiscreteDynamicsWorld
+    type ray_hit = {
+      body: RigidBody?,
+      fraction: Float,
+      point: Vector3,
+      normal: Vector3
+    }
+
+    type contact_hit = {
+      body0: RigidBody?,
+      body1: RigidBody?,
+      position_world_on_a: Vector3,
+      position_world_on_b: Vector3,
+      normal_world_on_b: Vector3,
+      distance: Float,
+      part_id0: Integer,
+      index0: Integer,
+      part_id1: Integer,
+      index1: Integer
+    }
+
+    type contact_point = {
+      position_world_on_a: Vector3,
+      position_world_on_b: Vector3,
+      normal_world_on_b: Vector3,
+      distance: Float,
+      life_time: Integer
+    }
+
+    type contact_manifold = {
+      body0: RigidBody?,
+      body1: RigidBody?,
+      points: Array[contact_point]
+    }
+
+    def self.create: () -> DiscreteDynamicsWorld
+
+    def initialize: () -> void
+                  | (CollisionDispatcher dispatcher, DbvtBroadphase broadphase, SequentialImpulseConstraintSolver solver, CollisionConfiguration configuration) -> void
+    def gravity: () -> Vector3
+    def gravity=: (Vector3 | [Numeric, Numeric, Numeric] gravity) -> Vector3
+    def add_rigid_body: (RigidBody rigid_body) -> void
+    def remove_rigid_body: (RigidBody rigid_body) -> void
+    def add_constraint: (Constraints::TypedConstraint constraint, ?bool disable_collisions_between_linked_bodies) -> void
+    def remove_constraint: (Constraints::TypedConstraint constraint) -> void
+    def add_vehicle: (RaycastVehicle vehicle) -> void
+    def remove_vehicle: (RaycastVehicle vehicle) -> void
+    def step_simulation: (Numeric time_step, ?Integer max_sub_steps, ?Numeric fixed_time_step) -> Integer
+    def num_collision_objects: () -> Integer
+    def num_constraints: () -> Integer
+    def clear_forces: () -> void
+    def synchronize_motion_states: () -> void
+    def ray_test_closest: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
+    def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> ray_hit?
+    def ray_test_all: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> Array[ray_hit]
+    def contact_test: (RigidBody rigid_body) -> Array[contact_hit]
+    def contact_pair_test: (RigidBody rigid_body_a, RigidBody rigid_body_b) -> Array[contact_hit]
+    def closest_points: (RigidBody rigid_body_a, RigidBody rigid_body_b, ?Numeric distance_threshold) -> Array[contact_hit]
+    def contact_manifolds: () -> Array[contact_manifold]
+    def debug_drawer: () -> DebugDraw?
+    def debug_drawer=: (DebugDraw debug_drawer) -> void
+    def debug_draw_world: () -> void
+  end
+
+  class DebugDraw
+    NO_DEBUG: Integer
+    DRAW_WIREFRAME: Integer
+    DRAW_AABB: Integer
+    DRAW_CONTACT_POINTS: Integer
+    DRAW_CONSTRAINTS: Integer
+    DRAW_CONSTRAINT_LIMITS: Integer
+    DRAW_FRAMES: Integer
+
+    type line = {
+      from: [Float, Float, Float],
+      to: [Float, Float, Float],
+      color: [Float, Float, Float]
+    }
+
+    type contact_point = {
+      point: [Float, Float, Float],
+      normal: [Float, Float, Float],
+      distance: Float,
+      life_time: Integer,
+      color: [Float, Float, Float]
+    }
+
+    type text = {
+      location: [Float, Float, Float],
+      text: String
+    }
+
+    attr_accessor debug_mode: Integer
+    attr_reader lines: Array[line]
+    attr_reader contact_points: Array[contact_point]
+    attr_reader warnings: Array[String]
+    attr_reader texts: Array[text]
+
+    def initialize: (?untyped target) -> void
+    def clear: () -> nil
+    def draw_line: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to, Vector3 | [Numeric, Numeric, Numeric] color) -> nil
+    def draw_contact_point: (Vector3 | [Numeric, Numeric, Numeric] point, Vector3 | [Numeric, Numeric, Numeric] normal, Numeric distance, Integer life_time, Vector3 | [Numeric, Numeric, Numeric] color) -> nil
+                          | (Vector3 | [Numeric, Numeric, Numeric] point, Vector3 | [Numeric, Numeric, Numeric] normal, distance: Numeric, life_time: Integer, color: Vector3 | [Numeric, Numeric, Numeric]) -> nil
+    def report_error_warning: (String message) -> nil
+    def draw_3d_text: (Vector3 | [Numeric, Numeric, Numeric] location, String text) -> nil
+  end
+
+  module IO
+    class DefaultSerializer
+      def initialize: () -> void
+      def serialize_world: (DiscreteDynamicsWorld world) -> String
+      def save_world: (DiscreteDynamicsWorld world, String filename) -> String
+    end
+
+    class BulletWorldImporter
+      def initialize: (DiscreteDynamicsWorld world) -> void
+      def load_file: (String filename) -> bool
+      def delete_all_data: () -> void
+      def verbose_mode: () -> Integer
+      def verbose_mode=: (Integer verbose_mode) -> Integer
+      def num_collision_shapes: () -> Integer
+      def num_rigid_bodies: () -> Integer
+      def num_constraints: () -> Integer
+    end
+
+    class Serializer
+      def initialize: (?Simulation simulation) -> void
+      def serialize_world: (?Simulation | DiscreteDynamicsWorld simulation_or_world) -> String
+      def save_world: (Simulation | DiscreteDynamicsWorld simulation_or_world, String filename) -> String
+      def load_world: (Simulation simulation, String filename) -> (nil | BulletWorldImporter)
+      def save_bullet: (Simulation | DiscreteDynamicsWorld simulation_or_world, String filename) -> String
+      def load_bullet: (Simulation simulation, String filename) -> BulletWorldImporter
+    end
+
+    class URDFImporter
+      attr_reader simulation: Simulation
+      def initialize: (?Simulation simulation) -> void
+      def load: (String filename, **untyped options) -> Integer
+    end
+
+    class SDFImporter
+      attr_reader simulation: Simulation
+      def initialize: (?Simulation simulation) -> void
+      def load: (String filename, **untyped options) -> Array[Integer]
+    end
+
+    class MJCFImporter
+      attr_reader simulation: Simulation
+      def initialize: (?Simulation simulation) -> void
+      def load: (String filename, **untyped options) -> Array[Integer]
+    end
+  end
+
+  class Simulation
+    type ray_hit = DiscreteDynamicsWorld::ray_hit
+
+    type contact_point = {
+      body0: Integer?,
+      body1: Integer?,
+      position_world_on_a: Vector3,
+      position_world_on_b: Vector3,
+      normal_world_on_b: Vector3,
+      distance: Float,
+      part_id0: Integer?,
+      index0: Integer?,
+      part_id1: Integer?,
+      index1: Integer?,
+      life_time: Integer?
+    }
+
+    attr_reader world: DiscreteDynamicsWorld
+    attr_reader mode: Symbol
+
+    def initialize: (?mode: Symbol) -> void
+    def set_gravity: (Numeric x, ?Numeric y, ?Numeric z) -> Vector3
+                   | (Vector3 | [Numeric, Numeric, Numeric] vector) -> Vector3
+    def step_simulation: (?time_step: Numeric, ?max_sub_steps: Integer, ?fixed_time_step: Numeric) -> Integer
+    def create_collision_shape: (Symbol | String type, **untyped options) -> Integer
+    def create_rigid_body: (mass: Numeric, collision_shape: Integer, ?position: Vector3 | [Numeric, Numeric, Numeric], ?orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?rgba_color: [Numeric, Numeric, Numeric, Numeric]) -> Integer
+    def create_constraint: (Symbol | String type, **untyped options) -> Integer
+    def load_urdf: (String filename, ?base_position: Vector3 | [Numeric, Numeric, Numeric], ?base_orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?use_fixed_base: bool, ?global_scaling: Numeric) -> Integer
+    def load_sdf: (String filename, ?base_position: Vector3 | [Numeric, Numeric, Numeric], ?base_orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?global_scaling: Numeric) -> Array[Integer]
+    def load_mjcf: (String filename, ?base_position: Vector3 | [Numeric, Numeric, Numeric], ?base_orientation: Quaternion | [Numeric, Numeric, Numeric, Numeric], ?global_scaling: Numeric) -> Array[Integer]
+    def get_base_position_and_orientation: (Integer body_id) -> [[Float, Float, Float], [Float, Float, Float, Float]]
+    def set_base_position_and_orientation: (Integer body_id, Vector3 | [Numeric, Numeric, Numeric] position, ?Quaternion | [Numeric, Numeric, Numeric, Numeric] orientation) -> nil
+    def get_aabb: (Integer body_id) -> [[Float, Float, Float], [Float, Float, Float]]
+    def ray_test: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> DiscreteDynamicsWorld::ray_hit?
+    def ray_test_all: (Vector3 | [Numeric, Numeric, Numeric] from, Vector3 | [Numeric, Numeric, Numeric] to) -> Array[DiscreteDynamicsWorld::ray_hit]
+    def ray_test_batch: (Array[[Vector3 | [Numeric, Numeric, Numeric], Vector3 | [Numeric, Numeric, Numeric]]] rays) -> Array[DiscreteDynamicsWorld::ray_hit?]
+    def get_contact_points: (?body_a: Integer?, ?body_b: Integer?) -> Array[contact_point]
+    def change_dynamics: (Integer body_id, ?lateral_friction: Numeric?, ?restitution: Numeric?) -> nil
+    def get_num_joints: (Integer body_id) -> Integer
+    def get_joint_info: (Integer body_id, Integer joint_index) -> Hash[Symbol, untyped]
+    def get_joint_state: (Integer body_id, Integer joint_index) -> Hash[Symbol, untyped]
+    def set_joint_motor_control: (Integer body_id, Integer joint_index, control_mode: Symbol | String, ?target_position: Numeric?, ?target_velocity: Numeric, ?force: Numeric) -> nil
+    def get_camera_image: (Integer width, Integer height, ?camera_eye_position: Vector3 | [Numeric, Numeric, Numeric], ?camera_target_position: Vector3 | [Numeric, Numeric, Numeric], ?camera_up_vector: Vector3 | [Numeric, Numeric, Numeric], ?fov: Numeric, ?near: Numeric, ?far: Numeric, ?background_color: [Numeric, Numeric, Numeric, Numeric], ?body_colors: Hash[Integer, [Numeric, Numeric, Numeric, Numeric]]) -> [Integer, Integer, Array[Integer], Array[Float], Array[Integer]]
+    def debug_draw_world: (?DebugDraw drawer, ?mode: Integer?) -> DebugDraw
+    def save_world: (String filename) -> String
+    def save_bullet: (String filename) -> String
+    def load_world: (String filename) -> nil
+    def load_bullet: (String filename) -> IO::BulletWorldImporter
+    def body: (Integer body_id) -> RigidBody
+    def collision_shape: (Integer shape_id) -> Shapes::CollisionShape
+    def constraint: (Integer constraint_id) -> Constraints::TypedConstraint
+    def remove_body: (Integer body_id) -> nil
+    def remove_constraint: (Integer constraint_id) -> nil
+    def reset_simulation: () -> nil
+    def disconnect: () -> nil
+  end
+end

@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
-require "bullet_ruby"
+require "bullet3"
 
-world = Bullet::SoftBody::SoftRigidDynamicsWorld.create
+world = Bullet3::SoftBody::SoftRigidDynamicsWorld.create
 world.gravity = [0, -9.81, 0]
 info = world.world_info
 info.air_density = 1.2
 info.water_normal = [0, 1, 0]
 
-rope = Bullet::SoftBody::Helpers.create_rope(info, [0, 2, 0], [2, 2, 0], 8, 1)
+rope = Bullet3::SoftBody::Helpers.create_rope(info, [0, 2, 0], [2, 2, 0], 8, 1)
 rope.set_total_mass(1.0)
 rope.generate_bending_constraints(2)
 world.add_soft_body(rope)

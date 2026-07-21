@@ -2,9 +2,9 @@
 
 require "tmpdir"
 
-RSpec.describe Bullet::Simulation do
+RSpec.describe Bullet3::Simulation do
   before do
-    skip "native extension only" unless ENV["BULLET_RUBY_USE_NATIVE"] == "1"
+    skip "native extension only" unless ENV["BULLET3_USE_NATIVE"] == "1"
   end
 
   it "creates primitive bodies and steps the simulation" do
@@ -33,7 +33,7 @@ RSpec.describe Bullet::Simulation do
     shape = sim.create_collision_shape(:box, half_extents: [1, 1, 1])
     body = sim.create_rigid_body(mass: 1.0, collision_shape: shape)
 
-    expect(sim.body(body)).to be_a(Bullet::RigidBody)
+    expect(sim.body(body)).to be_a(Bullet3::RigidBody)
     sim.remove_body(body)
     expect { sim.body(body) }.to raise_error(ArgumentError)
   ensure
@@ -259,8 +259,8 @@ RSpec.describe Bullet::Simulation do
       :fixed,
       body_a: body_a,
       body_b: body_b,
-      frame_in_a: Bullet::Transform.identity,
-      frame_in_b: Bullet::Transform.identity
+      frame_in_a: Bullet3::Transform.identity,
+      frame_in_b: Bullet3::Transform.identity
     )
 
     expect(sim.constraint(p2p).constraint_type).to eq(:point2point)

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe Bullet::Matrix3x3 do
+RSpec.describe Bullet3::Matrix3x3 do
   it "creates identity matrices" do
     matrix = described_class.identity
 
@@ -13,10 +13,10 @@ RSpec.describe Bullet::Matrix3x3 do
 
   it "builds a rotation matrix from a quaternion" do
     matrix = described_class.from_quaternion(
-      Bullet::Quaternion.from_axis_angle(Bullet::Vector3.new(0, 0, 1), Math::PI / 2)
+      Bullet3::Quaternion.from_axis_angle(Bullet3::Vector3.new(0, 0, 1), Math::PI / 2)
     )
 
-    rotated = matrix * Bullet::Vector3.new(1, 0, 0)
+    rotated = matrix * Bullet3::Vector3.new(1, 0, 0)
 
     expect(rotated.x).to be_within(1e-6).of(0.0)
     expect(rotated.y).to be_within(1e-6).of(1.0)

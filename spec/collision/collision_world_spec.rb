@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-RSpec.describe "Bullet::CollisionWorld" do
+RSpec.describe "Bullet3::CollisionWorld" do
   before do
-    skip "native extension only" unless ENV["BULLET_RUBY_USE_NATIVE"] == "1"
+    skip "native extension only" unless ENV["BULLET3_USE_NATIVE"] == "1"
   end
 
   it "adds and removes standalone collision objects" do
-    world = Bullet::CollisionWorld.create
-    shape = Bullet::Shapes::BoxShape.new(Bullet::Vector3.new(1, 1, 1))
-    object = Bullet::CollisionObject.new(shape)
-    object.world_transform = Bullet::Transform.new(Bullet::Quaternion.identity, [0, 0, 0])
+    world = Bullet3::CollisionWorld.create
+    shape = Bullet3::Shapes::BoxShape.new(Bullet3::Vector3.new(1, 1, 1))
+    object = Bullet3::CollisionObject.new(shape)
+    object.world_transform = Bullet3::Transform.new(Bullet3::Quaternion.identity, [0, 0, 0])
     object.friction = 0.7
     object.restitution = 0.25
 
@@ -29,9 +29,9 @@ RSpec.describe "Bullet::CollisionWorld" do
   end
 
   it "returns closest and all ray hits with Ruby collision object references" do
-    world = Bullet::CollisionWorld.create
-    object = Bullet::CollisionObject.new(Bullet::Shapes::SphereShape.new(1.0))
-    object.world_transform = Bullet::Transform.new(Bullet::Quaternion.identity, [0, 0, 0])
+    world = Bullet3::CollisionWorld.create
+    object = Bullet3::CollisionObject.new(Bullet3::Shapes::SphereShape.new(1.0))
+    object.world_transform = Bullet3::Transform.new(Bullet3::Quaternion.identity, [0, 0, 0])
 
     world.add_collision_object(object)
 
@@ -48,12 +48,12 @@ RSpec.describe "Bullet::CollisionWorld" do
   end
 
   it "can use explicit dispatcher and broadphase objects" do
-    configuration = Bullet::CollisionConfiguration.new
-    dispatcher = Bullet::CollisionDispatcher.new(configuration)
-    dbvt_world = Bullet::CollisionWorld.new(dispatcher, Bullet::DbvtBroadphase.new, configuration)
-    axis_world = Bullet::CollisionWorld.new(
+    configuration = Bullet3::CollisionConfiguration.new
+    dispatcher = Bullet3::CollisionDispatcher.new(configuration)
+    dbvt_world = Bullet3::CollisionWorld.new(dispatcher, Bullet3::DbvtBroadphase.new, configuration)
+    axis_world = Bullet3::CollisionWorld.new(
       dispatcher,
-      Bullet::AxisSweep3.new([-100, -100, -100], [100, 100, 100]),
+      Bullet3::AxisSweep3.new([-100, -100, -100], [100, 100, 100]),
       configuration
     )
 
@@ -62,11 +62,11 @@ RSpec.describe "Bullet::CollisionWorld" do
   end
 
   it "reports contact pairs and closest points" do
-    world = Bullet::CollisionWorld.create
-    object_a = Bullet::CollisionObject.new(Bullet::Shapes::SphereShape.new(1.0))
-    object_b = Bullet::CollisionObject.new(Bullet::Shapes::SphereShape.new(1.0))
-    object_a.world_transform = Bullet::Transform.new(Bullet::Quaternion.identity, [0, 0, 0])
-    object_b.world_transform = Bullet::Transform.new(Bullet::Quaternion.identity, [0, 1.5, 0])
+    world = Bullet3::CollisionWorld.create
+    object_a = Bullet3::CollisionObject.new(Bullet3::Shapes::SphereShape.new(1.0))
+    object_b = Bullet3::CollisionObject.new(Bullet3::Shapes::SphereShape.new(1.0))
+    object_a.world_transform = Bullet3::Transform.new(Bullet3::Quaternion.identity, [0, 0, 0])
+    object_b.world_transform = Bullet3::Transform.new(Bullet3::Quaternion.identity, [0, 1.5, 0])
 
     world.add_collision_object(object_a)
     world.add_collision_object(object_b)

@@ -1,34 +1,34 @@
 # frozen_string_literal: true
 
-RSpec.describe "Bullet vehicles" do
+RSpec.describe "Bullet3 vehicles" do
   before do
-    skip "native extension only" unless ENV["BULLET_RUBY_USE_NATIVE"] == "1"
+    skip "native extension only" unless ENV["BULLET3_USE_NATIVE"] == "1"
   end
 
   def rigid_body(shape, mass, origin)
-    transform = Bullet::Transform.new(Bullet::Quaternion.identity, origin)
-    motion_state = Bullet::MotionState.new(transform)
+    transform = Bullet3::Transform.new(Bullet3::Quaternion.identity, origin)
+    motion_state = Bullet3::MotionState.new(transform)
     inertia = shape.calculate_local_inertia(mass)
-    info = Bullet::RigidBodyConstructionInfo.new(mass, motion_state, shape, inertia)
-    Bullet::RigidBody.new(info)
+    info = Bullet3::RigidBodyConstructionInfo.new(mass, motion_state, shape, inertia)
+    Bullet3::RigidBody.new(info)
   end
 
   it "creates raycast vehicles and updates wheel controls" do
-    world = Bullet::DiscreteDynamicsWorld.create
+    world = Bullet3::DiscreteDynamicsWorld.create
     world.gravity = [0, -9.81, 0]
 
-    ground_shape = Bullet::Shapes::StaticPlaneShape.new(Bullet::Vector3.new(0, 1, 0), 0)
-    ground = rigid_body(ground_shape, 0.0, Bullet::Vector3.new(0, 0, 0))
-    chassis_shape = Bullet::Shapes::BoxShape.new(Bullet::Vector3.new(1.0, 0.4, 2.0))
-    chassis = rigid_body(chassis_shape, 800.0, Bullet::Vector3.new(0, 1.0, 0))
+    ground_shape = Bullet3::Shapes::StaticPlaneShape.new(Bullet3::Vector3.new(0, 1, 0), 0)
+    ground = rigid_body(ground_shape, 0.0, Bullet3::Vector3.new(0, 0, 0))
+    chassis_shape = Bullet3::Shapes::BoxShape.new(Bullet3::Vector3.new(1.0, 0.4, 2.0))
+    chassis = rigid_body(chassis_shape, 800.0, Bullet3::Vector3.new(0, 1.0, 0))
     world.add_rigid_body(ground)
     world.add_rigid_body(chassis)
 
-    tuning = Bullet::VehicleTuning.new
+    tuning = Bullet3::VehicleTuning.new
     tuning.suspension_stiffness = 6.0
     tuning.friction_slip = 12.0
 
-    vehicle = Bullet::RaycastVehicle.new(tuning, world, chassis)
+    vehicle = Bullet3::RaycastVehicle.new(tuning, world, chassis)
     vehicle.set_coordinate_system(0, 1, 2)
     wheel0 = vehicle.add_wheel([0.8, 0.2, 1.2], [0, -1, 0], [-1, 0, 0], 0.6, 0.35, tuning, true)
     vehicle.add_wheel([-0.8, 0.2, 1.2], [0, -1, 0], [-1, 0, 0], 0.6, 0.35, tuning, true)
@@ -50,9 +50,9 @@ RSpec.describe "Bullet vehicles" do
     expect(wheel0.index).to eq(0)
     expect(wheel0.front_wheel?).to be(true)
     expect(wheel0.radius).to be_within(1e-6).of(0.35)
-    expect(wheel0.world_transform).to be_a(Bullet::Transform)
-    expect(vehicle.chassis_world_transform).to be_a(Bullet::Transform)
-    expect(vehicle.forward_vector).to be_a(Bullet::Vector3)
+    expect(wheel0.world_transform).to be_a(Bullet3::Transform)
+    expect(vehicle.chassis_world_transform).to be_a(Bullet3::Transform)
+    expect(vehicle.forward_vector).to be_a(Bullet3::Vector3)
 
     world.remove_vehicle(vehicle)
   end

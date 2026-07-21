@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-RSpec.describe Bullet::Data do
+RSpec.describe Bullet3::Data do
   it "finds bundled pybullet data assets" do
     path = described_class.find("plane.urdf")
 
