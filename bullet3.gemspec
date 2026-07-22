@@ -3,14 +3,14 @@
 require_relative "lib/bullet3/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "bullet3-ruby"
+  spec.name = "bullet3"
   spec.version = Bullet3::VERSION
   spec.authors = ["Yudai Takada"]
   spec.email = ["t.yudai92@gmail.com"]
 
   spec.summary = "Ruby bindings for the Bullet Physics SDK."
   spec.description = "Ruby bindings for bullet3 with a low-level API and a Ruby-friendly simulation layer."
-  spec.homepage = "https://github.com/ydah/bullet3-ruby"
+  spec.homepage = "https://github.com/ydah/bullet3"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1.0"
   spec.metadata["homepage_uri"] = spec.homepage

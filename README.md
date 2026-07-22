@@ -18,7 +18,7 @@ primitive URDF loading, bundled data paths, and the high-level
 Add the gem from this repository:
 
 ```bash
-gem "bullet3-ruby", path: "path/to/bullet3-ruby"
+gem "bullet3", path: "path/to/bullet3"
 ```
 
 Then install dependencies:
