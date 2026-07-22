@@ -27,16 +27,23 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          submodules: recursive
           persist-credentials: false
+      - name: Install Bullet on Ubuntu
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libbullet-dev
+      - name: Install Bullet on macOS
+        if: runner.os == 'macOS'
+        run: brew install bullet
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - name: Run fallback specs
-        run: BULLET_RUBY_SKIP_NATIVE=1 bundle exec rake spec
+        run: BULLET3_SKIP_NATIVE=1 bundle exec rake spec
       - name: Compile native extension
         run: bundle exec rake compile
       - name: Run native specs
-        run: BULLET_RUBY_USE_NATIVE=1 bundle exec rake spec
+        run: bundle exec rake spec
