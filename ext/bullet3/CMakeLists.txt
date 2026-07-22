@@ -181,16 +181,27 @@ target_include_directories(bullet3 SYSTEM PRIVATE
   "${RICE_GEM_PATH}/include"
 )
 
+set(BULLET3_RUBY_LIBRARIES "")
+foreach(RUBY_LIBRARY IN LISTS Ruby_LIBRARIES)
+  if(RUBY_LIBRARY AND NOT RUBY_LIBRARY MATCHES "-NOTFOUND$")
+    list(APPEND BULLET3_RUBY_LIBRARIES ${RUBY_LIBRARY})
+  endif()
+endforeach()
+
 if(BULLET3_LIBRARY_DIRS)
   target_link_directories(bullet3 PRIVATE ${BULLET3_LIBRARY_DIRS})
 endif()
 
 target_link_libraries(bullet3 PRIVATE
-  ${Ruby_LIBRARIES}
+  ${BULLET3_RUBY_LIBRARIES}
   ${BULLET3_LINK_TARGETS}
   ${BULLET3_LIBRARIES}
   ${BULLET3_OPTIONAL_LIBRARIES}
 )
+
+if(APPLE)
+  target_link_options(bullet3 PRIVATE -undefined dynamic_lookup)
+endif()
 
 if(BULLET3_WITH_WORLD_IMPORTER)
   target_compile_definitions(bullet3 PRIVATE BULLET3_WITH_WORLD_IMPORTER)
