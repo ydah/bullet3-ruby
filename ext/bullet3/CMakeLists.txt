@@ -210,7 +210,11 @@ endif()
 if(MSVC)
   target_compile_options(bullet3 PRIVATE /W4)
 else()
-  target_compile_options(bullet3 PRIVATE -Wall -Wextra)
+  target_compile_options(bullet3 PRIVATE
+    -Wall
+    -Wextra
+    $<$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang,GNU>:-include${CMAKE_CURRENT_SOURCE_DIR}/util/ruby_cpp_compat.hpp>
+  )
 endif()
 
 set_target_properties(bullet3 PROPERTIES

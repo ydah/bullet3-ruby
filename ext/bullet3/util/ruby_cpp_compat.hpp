@@ -1,0 +1,29 @@
+#pragma once
+
+// Ruby 3.1 can define memcpy as a macro; include C++ headers before Ruby/Rice.
+#include <algorithm>
+#include <any>
+#include <complex>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <functional>
+#include <iostream>
+#include <locale>
+#include <map>
+#include <memory>
+#include <optional>
+#include <ostream>
+#include <set>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <type_traits>
+#include <typeindex>
+#include <typeinfo>
+#include <unordered_map>
+#include <utility>
+#include <variant>
+#include <vector>
