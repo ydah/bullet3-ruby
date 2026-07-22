@@ -2,7 +2,7 @@
 
 module Bullet3
   module Data
-    DEFAULT_PATH = File.expand_path("../../vendor/bullet3/examples/pybullet/gym/pybullet_data", __dir__)
+    DEFAULT_PATH = File.expand_path("../../data", __dir__)
 
     class << self
       def search_paths

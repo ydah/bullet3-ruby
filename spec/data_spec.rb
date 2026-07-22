@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe Bullet3::Data do
-  it "finds bundled pybullet data assets" do
+  it "finds bundled data assets" do
     path = described_class.find("plane.urdf")
 
     expect(path).to end_with("plane.urdf")

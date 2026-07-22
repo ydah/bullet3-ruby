@@ -10,7 +10,7 @@ module Bullet3
     def initialize(mode: :direct)
       mode = mode.to_sym
       raise ArgumentError, "unsupported connection mode: #{mode}" unless %i[direct gui shared_memory].include?(mode)
-      raise Bullet3::Error, "native extension is required for Bullet3::Simulation" unless defined?(DiscreteDynamicsWorld)
+      Bullet3.require_native_extension!("Bullet3::Simulation") unless Bullet3.native?
 
       @mode = mode
       @world = DiscreteDynamicsWorld.create

@@ -10,7 +10,7 @@ This project exposes a two-layer API:
 The current native extension covers LinearMath, collision shapes,
 `CollisionObject`/`CollisionWorld`, rigid bodies, dynamics worlds, constraints,
 ray/contact/closest-point queries, raycast vehicles, soft bodies, multibodies,
-primitive URDF loading, pybullet-style data paths, and the high-level
+primitive URDF loading, bundled data paths, and the high-level
 `Bullet3::Simulation` facade.
 
 ## Installation
@@ -24,7 +24,16 @@ gem "bullet3-ruby", path: "path/to/bullet3-ruby"
 Then install dependencies:
 
 ```bash
+brew install bullet
 bundle install
+```
+
+On Linux, install the Bullet development package for your distribution before
+running `bundle install`:
+
+```bash
+sudo apt install libbullet-dev
+sudo dnf install bullet-devel
 ```
 
 Compile the native extension before using the Bullet3-backed classes:
@@ -63,9 +72,9 @@ p sim.get_base_position_and_orientation(body)
 puts sim.get_contact_points(body_a: body).inspect
 ```
 
-By default the pure Ruby fallback is loaded for non-native classes. Set
-`BULLET3_USE_NATIVE=1` after compiling the extension to load the native
-Bullet3 bindings.
+By default `require "bullet3"` loads the native extension when it has been
+compiled. Set `BULLET3_SKIP_NATIVE=1` to force the pure Ruby fallback for
+non-native classes.
 
 Primitive URDF loading and data paths:
 
@@ -106,6 +115,11 @@ importer = loaded.load_bullet("world.bullet")
 p importer.num_rigid_bodies
 ```
 
+`.bullet` import support is enabled when Bullet's WorldImporter extras are
+available at build time. Set `BULLET3_EXTRAS_SOURCE_DIR` to Bullet's
+`Extras/Serialize` source directory before compiling if your system Bullet
+package does not ship those libraries.
+
 Debug drawing via Bullet3's `btIDebugDraw` interface:
 
 ```ruby
@@ -138,12 +152,17 @@ TinyRenderer/OpenGL.
 
 ## Development
 
-After checking out the repo, initialize submodules and install dependencies:
+After checking out the repo, install Bullet and Ruby dependencies:
 
 ```bash
-git submodule update --init --recursive
+brew install bullet
 bundle install
 ```
+
+Use `BULLET_ROOT=/path/to/bullet` when Bullet is installed outside the standard
+system prefixes. `.bullet` import support also needs Bullet's WorldImporter
+extras; set `BULLET3_EXTRAS_SOURCE_DIR=/path/to/bullet3/Extras/Serialize` before
+compiling to enable it from a Bullet source checkout.
 
 Run the Ruby fallback test suite:
 
@@ -155,15 +174,15 @@ Compile and test the native extension:
 
 ```bash
 bundle exec rake compile
-BULLET3_USE_NATIVE=1 bundle exec rake spec
+bundle exec rake spec
 ```
 
 Run examples:
 
 ```bash
-BULLET3_USE_NATIVE=1 bundle exec ruby examples/hello_world.rb
-BULLET3_USE_NATIVE=1 bundle exec ruby examples/ray_casting.rb
-BULLET3_USE_NATIVE=1 bundle exec ruby examples/urdf.rb
+bundle exec ruby examples/hello_world.rb
+bundle exec ruby examples/ray_casting.rb
+bundle exec ruby examples/urdf.rb
 ```
 
 ## Contributing

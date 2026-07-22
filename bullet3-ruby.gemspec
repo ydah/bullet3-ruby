@@ -20,7 +20,7 @@ Gem::Specification.new do |spec|
   file_candidates = IO.popen(%w[git ls-files -z --cached --modified --others --exclude-standard], chdir: __dir__, err: IO::NULL) do |ls|
     ls.readlines("\x0", chomp: true)
   end
-  package_paths = %w[LICENSE.txt README.md ext/ lib/ sig/]
+  package_paths = %w[LICENSE.txt README.md data/ ext/ lib/ sig/]
   spec.files = file_candidates.uniq.select do |f|
     path = File.join(__dir__, f)
     File.file?(path) &&

@@ -2,7 +2,7 @@
 
 RSpec.describe "Bullet3 rigid bodies" do
   before do
-    skip "native extension only" unless ENV["BULLET3_USE_NATIVE"] == "1"
+    skip "native extension only" unless Bullet3.native?
   end
 
   it "builds rigid bodies from construction info" do

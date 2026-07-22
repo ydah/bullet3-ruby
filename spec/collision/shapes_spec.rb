@@ -2,7 +2,7 @@
 
 RSpec.describe "Bullet3::Shapes" do
   before do
-    skip "native extension only" unless ENV["BULLET3_USE_NATIVE"] == "1"
+    skip "native extension only" unless Bullet3.native?
   end
 
   it "creates primitive shapes with symbolic shape types" do

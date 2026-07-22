@@ -4,7 +4,10 @@
 #include <stdexcept>
 
 #include <LinearMath/btSerializer.h>
+
+#ifdef BULLET3_WITH_WORLD_IMPORTER
 #include <btBulletWorldImporter.h>
+#endif
 
 namespace bullet3 {
 VALUE DefaultSerializer::serialize_world(DiscreteDynamicsWorld& world) const
@@ -32,6 +35,7 @@ std::string DefaultSerializer::save_world(DiscreteDynamicsWorld& world, const st
   return filename;
 }
 
+#ifdef BULLET3_WITH_WORLD_IMPORTER
 BulletWorldImporter::BulletWorldImporter(DiscreteDynamicsWorld& world)
   : importer_(std::make_unique<btBulletWorldImporter>(world.get()))
 {
@@ -74,6 +78,7 @@ int BulletWorldImporter::num_constraints() const
 {
   return importer_->getNumConstraints();
 }
+#endif
 } // namespace bullet3
 
 void Init_IO(Rice::Module rb_mBullet)
@@ -88,6 +93,7 @@ void Init_IO(Rice::Module rb_mBullet)
       Rice::Arg("world").keepAlive(),
       Rice::Arg("filename"));
 
+#ifdef BULLET3_WITH_WORLD_IMPORTER
   Rice::define_class_under<bullet3::BulletWorldImporter>(rb_mIO, "BulletWorldImporter")
     .define_constructor(Rice::Constructor<bullet3::BulletWorldImporter, bullet3::DiscreteDynamicsWorld&>(),
       Rice::Arg("world").keepAlive())
@@ -98,4 +104,5 @@ void Init_IO(Rice::Module rb_mBullet)
     .define_method("num_collision_shapes", &bullet3::BulletWorldImporter::num_collision_shapes)
     .define_method("num_rigid_bodies", &bullet3::BulletWorldImporter::num_rigid_bodies)
     .define_method("num_constraints", &bullet3::BulletWorldImporter::num_constraints);
+#endif
 }

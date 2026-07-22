@@ -17,6 +17,7 @@ public:
   std::string save_world(DiscreteDynamicsWorld& world, const std::string& filename) const;
 };
 
+#ifdef BULLET3_WITH_WORLD_IMPORTER
 class BulletWorldImporter {
 public:
   explicit BulletWorldImporter(DiscreteDynamicsWorld& world);
@@ -33,6 +34,7 @@ public:
 private:
   std::unique_ptr<btBulletWorldImporter> importer_;
 };
+#endif
 } // namespace bullet3
 
 void Init_IO(Rice::Module rb_mBullet);

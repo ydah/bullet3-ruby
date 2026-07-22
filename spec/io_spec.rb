@@ -4,10 +4,28 @@ require "tmpdir"
 
 RSpec.describe Bullet3::IO do
   before do
-    skip "native extension only" unless ENV["BULLET3_USE_NATIVE"] == "1"
+    skip "native extension only" unless Bullet3.native?
   end
 
-  it "saves and imports native .bullet world files" do
+  it "saves native .bullet world files" do
+    Dir.mktmpdir do |dir|
+      sim = Bullet3::Simulation.new
+      shape = sim.create_collision_shape(:sphere, radius: 1.0)
+      sim.create_rigid_body(mass: 0.0, collision_shape: shape)
+
+      path = File.join(dir, "world.bullet")
+      serializer = described_class::Serializer.new(sim)
+      serializer.save_world(sim, path)
+
+      expect(File.binread(path, 6)).to eq("BULLET")
+    ensure
+      sim&.disconnect
+    end
+  end
+
+  it "imports native .bullet world files when WorldImporter is available" do
+    skip "native .bullet import unavailable" unless described_class.const_defined?(:BulletWorldImporter, false)
+
     Dir.mktmpdir do |dir|
       sim = Bullet3::Simulation.new
       shape = sim.create_collision_shape(:sphere, radius: 1.0)
@@ -20,7 +38,6 @@ RSpec.describe Bullet3::IO do
       loaded = Bullet3::Simulation.new
       importer = serializer.load_world(loaded, path)
 
-      expect(File.binread(path, 6)).to eq("BULLET")
       expect(importer.num_rigid_bodies).to eq(1)
       expect(importer.num_collision_shapes).to be >= 1
       expect(loaded.world.num_collision_objects).to eq(1)
