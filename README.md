@@ -1,5 +1,7 @@
 # bullet3
 
+[![Gem Version](https://badge.fury.io/rb/bullet3.svg)](https://badge.fury.io/rb/bullet3) [![Ruby](https://github.com/ydah/bullet3-ruby/actions/workflows/main.yml/badge.svg)](https://github.com/ydah/bullet3-ruby/actions/workflows/main.yml)
+
 Ruby bindings for the Bullet Physics SDK.
 
 This project exposes a two-layer API:
